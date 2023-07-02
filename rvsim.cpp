@@ -29,6 +29,7 @@ using namespace std;
 
 unsigned int pc;
 unsigned char memory[(16 + 64) * 1024];
+unsigned int reg[32];
 
 void emitError(char *s)
 {
@@ -71,10 +72,12 @@ void instDecExec(unsigned int instWord)
             if (funct7 == 0x00)
             {
                 cout << "\tADD\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                reg[rd] = reg[rs1] + reg[rs2];
             }
             else if (funct7 == 0x20)
             {
                 cout << "\tSUB\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                reg[rd] = reg[rs1] - reg[rs2];
             }
             break;
 
@@ -82,6 +85,7 @@ void instDecExec(unsigned int instWord)
             if (funct7 == 0x00)
             {
                 cout << "\tXOR\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                reg[rd] = reg[rs1] ^ reg[rs2];
             }
             break;
 
@@ -89,6 +93,7 @@ void instDecExec(unsigned int instWord)
             if (funct7 == 0x00)
             {
                 cout << "\tOR\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                reg[rd] = reg[rs1] | reg[rs2];
             }
             break;
 
@@ -96,6 +101,7 @@ void instDecExec(unsigned int instWord)
             if (funct7 == 0x00)
             {
                 cout << "\tAND\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                reg[rd] = reg[rs1] & reg[rs2];
             }
             break;
 
@@ -103,6 +109,7 @@ void instDecExec(unsigned int instWord)
             if (funct7 == 0x00)
             {
                 cout << "\tSLL\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                reg[rd] = rs1 << rs2;
             }
             break;
 
@@ -110,10 +117,22 @@ void instDecExec(unsigned int instWord)
             if (funct7 == 0x00)
             {
                 cout << "\tSRL\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                reg[rd] = rs1 >> rs2;
             }
             else if (funct7 == 0x20)
             {
                 cout << "\tSRA\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                unsigned int temp = rs2;
+
+                bool isNeg = reg[rs1] & 0x80000000;
+                reg[rd] = rs1 >> rs2;
+
+                // debugging: could rs2 be negative? Should we consider the 2's complement?
+
+                for (unsigned int i = 0; i < temp; i++)
+                {
+                    reg[rd] = reg[rd] | (isNeg << 31 - i);
+                }
             }
             break;
 
@@ -121,6 +140,15 @@ void instDecExec(unsigned int instWord)
             if (funct7 == 0x00)
             {
                 cout << "\tSLT\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                // debugging: could rs1 or rs2 be negative? Should we consider the 2's complement?
+                if (reg[rs1] < reg[rs2])
+                {
+                    reg[rd] = 0b1;
+                }
+                else
+                {
+                    reg[rd] = 0b0;
+                }
             }
             break;
 
@@ -128,6 +156,14 @@ void instDecExec(unsigned int instWord)
             if (funct7 == 0x00)
             {
                 cout << "\tSLTU\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                if (reg[rs1] < reg[rs2])
+                {
+                    reg[rd] = 0b1;
+                }
+                else
+                {
+                    reg[rd] = 0b0;
+                }
             }
             break;
 
@@ -144,6 +180,8 @@ void instDecExec(unsigned int instWord)
         {
         case 0:
             cout << "\tADDI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            reg[rd] = reg[rs1] + (int)I_imm;
+            // debugging: check the type cast (int)I_imm, and check for negative immediates
             break;
         default:
             cout << "\tUnkown I Instruction \n";
