@@ -45,7 +45,7 @@ void printPrefix(unsigned int instA, unsigned int instW)
 void instDecExec(unsigned int instWord)
 {
     unsigned int rd, rs1, rs2, funct3, funct7, opcode;
-    unsigned int I_imm, S_imm, B_imm, U_imm, J_imm;
+    unsigned int I_imm, S_imm, SB_imm, U_imm, UJ_imm; // debugging: do we need B_imm or J_imm ?
     unsigned int address;
 
     unsigned int instPC = pc - 4;
@@ -62,21 +62,20 @@ void instDecExec(unsigned int instWord)
 
     printPrefix(instPC, instWord);
 
-    if (opcode == 0x33 || opcode == 0x3B)
+    if (opcode == 0x33)
     { // R Instructions
-        // debugging: check if opcode == 0x3B is unsupported (addw, subw, others)
 
         switch (funct3)
         {
-        case 0x00:
-            if (funct7 == 0x00)
+        case 0x0:
+            if (funct7 == 0x0)
             {
-                cout << "\tADD\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                cout << "\tADD\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 reg[rd] = reg[rs1] + reg[rs2];
             }
             else if (funct7 == 0x20)
             {
-                cout << "\tSUB\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                cout << "\tSUB\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 reg[rd] = reg[rs1] - reg[rs2];
             }
             break;
@@ -84,7 +83,7 @@ void instDecExec(unsigned int instWord)
         case 0x4:
             if (funct7 == 0x00)
             {
-                cout << "\tXOR\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                cout << "\tXOR\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 reg[rd] = reg[rs1] ^ reg[rs2];
             }
             break;
@@ -92,7 +91,7 @@ void instDecExec(unsigned int instWord)
         case 0x6:
             if (funct7 == 0x00)
             {
-                cout << "\tOR\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                cout << "\tOR\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 reg[rd] = reg[rs1] | reg[rs2];
             }
             break;
@@ -100,7 +99,7 @@ void instDecExec(unsigned int instWord)
         case 0x7:
             if (funct7 == 0x00)
             {
-                cout << "\tAND\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                cout << "\tAND\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 reg[rd] = reg[rs1] & reg[rs2];
             }
             break;
@@ -108,61 +107,65 @@ void instDecExec(unsigned int instWord)
         case 0x1:
             if (funct7 == 0x00)
             {
-                cout << "\tSLL\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
-                reg[rd] = rs1 << rs2;
+                cout << "\tSLL\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                reg[rd] = rs1 << rs2; // debugging: should rs2 be cast to signed?
+                                      // debugging: in RARS, if rs2 is negative, rs1 is set to 0
             }
             break;
 
         case 0x5:
             if (funct7 == 0x00)
             {
-                cout << "\tSRL\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
-                reg[rd] = rs1 >> rs2;
+                cout << "\tSRL\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                reg[rd] = rs1 >> rs2; // debugging: should rs2 be cast to signed?
+                                      // debugging: in RARS, if rs2 is negative, rs1 is set to 0
             }
             else if (funct7 == 0x20)
             {
-                cout << "\tSRA\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                cout << "\tSRA\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 unsigned int temp = rs2;
 
                 bool isNeg = reg[rs1] & 0x80000000;
-                reg[rd] = rs1 >> rs2;
-
-                // debugging: could rs2 be negative? Should we consider the 2's complement?
-
-                for (unsigned int i = 0; i < temp; i++)
+                reg[rd] = rs1 >> rs2; // debugging: should rs2 be cast to signed?
+                                      // debugging: in RARS, if rs1 is positive and rs2 is negative, rd is set to 0
+                                      // debugging: in RARS, if rs1 is negative and rs2 is negative, rd is set to -1
+                if (isNeg)
                 {
-                    reg[rd] = reg[rd] | (isNeg << 31 - i);
+                    for (unsigned int i = 0; i < temp; i++)
+                    {
+                        reg[rd] = reg[rd] | (isNeg << 31 - i);
+                    }
                 }
             }
             break;
 
         case 0x2:
-            if (funct7 == 0x00)
+            if (funct7 == 0x0)
             {
-                cout << "\tSLT\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
-                // debugging: could rs1 or rs2 be negative? Should we consider the 2's complement?
+                cout << "\tSLT\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                // debugging: should rs1 or rs2 be cast to signed?
                 if (reg[rs1] < reg[rs2])
                 {
-                    reg[rd] = 0b1;
+                    reg[rd] = 1;
                 }
                 else
                 {
-                    reg[rd] = 0b0;
+                    reg[rd] = 0;
                 }
             }
             break;
 
         case 0x3:
-            if (funct7 == 0x00)
+            if (funct7 == 0x0)
             {
-                cout << "\tSLTU\tx" << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                cout << "\tSLTU\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 if (reg[rs1] < reg[rs2])
                 {
-                    reg[rd] = 0b1;
+                    reg[rd] = 1;
                 }
                 else
                 {
-                    reg[rd] = 0b0;
+                    reg[rd] = 0;
                 }
             }
             break;
@@ -171,15 +174,22 @@ void instDecExec(unsigned int instWord)
             cout << "\tUnkown R Instruction \n";
         }
     }
-    else if (opcode == 0x13 || opcode == 0x03 || opcode == 0x67 || opcode == 0x73 || opcode == 0x0F || opcode == 0x1B)
-    { // I instructions
-        // debugging: check if opcode == 0x0F is unsupported (fence, or other)
-        // debugging: check if opcode == 0x1B is unsupported (addiw, slliw, or others)
+    else if (opcode == 0x3B)
+    {
+        // R instructions
+        cout << "\tUnkown R Instruction \n";
+        // debugging: implementation required
+
+        // debugging: check if opcode == 0x3B is unsupported (addw, subw, others)
+    }
+    else if (opcode == 0x13)
+    {
+        // I instructions
 
         switch (funct3)
         {
-        case 0:
-            cout << "\tADDI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+        case 0x0:
+            cout << "\tADDI\tx" << dec << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
             reg[rd] = reg[rs1] + (int)I_imm;
             // debugging: check the type cast (int)I_imm, and check for negative immediates
             break;
@@ -187,21 +197,71 @@ void instDecExec(unsigned int instWord)
             cout << "\tUnkown I Instruction \n";
         }
     }
+    else if (opcode == 0x03)
+    {
+        // I instructions
+        cout << "\tUnkown I Instruction \n";
+        // debugging: implementation required
+    }
+    else if (opcode == 0x67)
+    {
+        // I instructions
+        cout << "\tUnkown I Instruction \n";
+        // debugging: implementation required
+    }
+    else if (opcode == 0x73)
+    {
+        // I instructions
+        cout << "\tUnkown I Instruction \n";
+        // debugging: implementation required
+    }
+    else if (opcode == 0x0F)
+    {
+        // I instructions
+        cout << "\tUnkown I Instruction \n";
+        // debugging: implementation required
+
+        // debugging: check if opcode == 0x0F is unsupported (fence, or other)
+    }
+    else if (opcode == 0x1B)
+    {
+        // I instructions
+        cout << "\tUnkown I Instruction \n";
+        // debugging: implementation required
+
+        // debugging: check if opcode == 0x1B is unsupported (addiw, slliw, or others)
+    }
     else if (opcode == 0x23)
     {
         // S instructions
+
+        // Ziyad's code
     }
     else if (opcode == 0x63)
     {
         // SB instructions
+
+        // Ziyad's code
     }
     else if (opcode == 0x6F)
     {
         // UJ instructions
+        cout << "\tJAL\tx" << dec << rd << hex << ", 0x" << (int)UJ_imm << "\n";
+        // debugging: implementation required
     }
-    else if (opcode == 0x37 || opcode == 0x17)
+    else if (opcode == 0x17)
     {
         // U instructions
+
+        cout << "\tAUIPC\tx" << dec << rd << hex << ", 0x" << (int)U_imm << "\n";
+        // debugging: implementation required
+    }
+    else if (opcode == 0x37)
+    {
+        // U instructions
+
+        cout << "\tLUI\tx" << dec << rd << hex << ", 0x" << (int)U_imm << "\n";
+        // debugging: implementation required
     }
     else
     {
@@ -211,7 +271,7 @@ void instDecExec(unsigned int instWord)
 
 int main(int argc, char *argv[])
 {
-
+    int counter = 0;
     unsigned int instWord = 0;
     ifstream inFile;
     ofstream outFile;
@@ -224,7 +284,7 @@ int main(int argc, char *argv[])
     */
 
     // debugging: remove the line below and uncomment the block above when debugging is finished
-    inFile.open("machineCode.bin", ios::in | ios::binary | ios::ate);
+    inFile.open("t1.bin", ios::in | ios::binary | ios::ate);
 
     /*
         debugging: remove this comment block when debugging is finished
@@ -240,7 +300,6 @@ int main(int argc, char *argv[])
     if (inFile.is_open())
     {
         int fsize = inFile.tellg();
-
         inFile.seekg(0, inFile.beg);
         if (!inFile.read((char *)memory, fsize))
             emitError("Cannot read from input file\n");
@@ -251,14 +310,16 @@ int main(int argc, char *argv[])
                        (((unsigned char)memory[pc + 1]) << 8) |
                        (((unsigned char)memory[pc + 2]) << 16) |
                        (((unsigned char)memory[pc + 3]) << 24);
+            counter++;
 
             // debugging: remove the line below when debugging is finished
             // cout << bitset<32>(instWord) << endl;
 
             pc += 4;
-            // remove the following line once you have a complete simulator
-            if (pc == 32)
-                break; // stop when PC reached address 32
+
+            if (instWord == 0) // debugging: configure the best way to detect the end of the program, and the while(true) loop
+                break;
+
             instDecExec(instWord);
         }
     }
