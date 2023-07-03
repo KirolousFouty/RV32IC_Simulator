@@ -234,14 +234,59 @@ void instDecExec(unsigned int instWord)
     else if (opcode == 0x23)
     {
         // S instructions
+switch (funct3)
+        {
+        case 0x0:
+            cout << "\tSB\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
+            // debugging: implementation required
+            break;
+        case 0x1:
+            cout << "\tSH\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
+            // debugging: implementation required
+            break;
+        case 0x2:
+            cout << "\tSW\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
+            // debugging: implementation required
+            break;
+        default:
+            cout << "\tUnknown S Instruction\n";
+        }
 
-        // Ziyad's code
+        
     }
     else if (opcode == 0x63)
     {
         // SB instructions
 
-        // Ziyad's code
+        switch (funct3)
+        {
+        case 0x0:
+            cout << "\tBEQ\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << SB_imm << "\n";
+            // debugging: implementation required
+            break;
+        case 0x1:
+            cout << "\tBNE\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << SB_imm << "\n";
+            // debugging: implementation required
+            break;
+        case 0x4:
+            cout << "\tBLT\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << SB_imm << "\n";
+            // debugging: implementation required
+            break;
+        case 0x5:
+            cout << "\tBGE\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << SB_imm << "\n";
+            // debugging: implementation required
+            break;
+        case 0x6:
+            cout << "\tBLTU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << SB_imm << "\n";
+            // debugging: implementation required
+            break;
+        case 0x7:
+            cout << "\tBGEU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << SB_imm << "\n";
+            // debugging: implementation required
+            break;
+        default:
+            cout << "\tUnknown SB Instruction\n";
+        }
     }
     else if (opcode == 0x6F)
     {
