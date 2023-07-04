@@ -186,13 +186,83 @@ void instDecExec(unsigned int instWord)
     {
         // I instructions
 
+       
         switch (funct3)
         {
-        case 0x0:
-            cout << "\tADDI\tx" << dec << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+        case 0:
+            cout << "\tADDI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
             reg[rd] = reg[rs1] + (int)I_imm;
             // debugging: check the type cast (int)I_imm, and check for negative immediates
             break;
+        case 0x1:
+
+            cout << "\tSLLI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            reg[rd] = rs1 << (int)I_imm;
+
+            break;
+        case 0x2:
+            cout << "\tSLTI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            if (reg[rs1] < (int)I_imm)
+                reg[rd] = 0b1;
+            else
+                reg[rd] = 0b0;
+
+            break;
+        case 0x3:
+            cout << "\tSLTIU\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            if (reg[rs1] < (int)I_imm)
+                reg[rd] = 0b1;
+            else
+                reg[rd] = 0b0;
+
+            break;
+
+        case 0x4:
+            cout << "\tXORI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            reg[rd] = reg[rs1] ^ (int)I_imm;
+            break;
+        case 0x5:
+            if (funct7 == 0x00)
+            {
+                cout << "\tSRLI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+                reg[rd] = rs1 >> (int)I_imm;
+            }
+            else if (funct7 == 0x20)
+            {
+                cout << "\tSRAI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+                if ((int)I_imm < 0 && reg[rs1]>=0) {
+                    reg[rd] = 0b0;
+                }
+                else if ((int)I_imm < 0 && reg[rs1]<0) {
+                    reg[rd] = -1;
+                }
+                else {
+                    unsigned int temp = rs2;
+
+                    bool isNeg = reg[rs1] & 0x80000000;
+                    reg[rd] = rs1 >> (int)I_imm;
+
+
+                    for (unsigned int i = 0; i < temp; i++)
+                    {
+                        reg[rd] = reg[rd] | (isNeg << 31 - i);
+                    }
+                }
+            }
+
+
+            break;
+        case 0x6:
+            cout << "\tORI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            reg[rd] = reg[rs1] | (int)I_imm;
+            break;
+        case 0x7:
+            cout << "\tANDI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            reg[rd] = reg[rs1] & (int)I_imm;
+            break;
+
+
+       
         default:
             cout << "\tUnkown I Instruction \n";
         }
