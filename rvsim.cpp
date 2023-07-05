@@ -295,9 +295,19 @@ void instDecExec(unsigned int instWord)
     }
     else if (opcode == 0x73)
     {
-        // I instructions
-        cout << "\tUnkown I Instruction \n";
-        // debugging: implementation required
+    if (reg[17] == 1)//if a7==1 print a0 integer
+    {
+        cout << (int)reg[10] << endl;
+    }
+    else if (reg[17] == 4) {// if a7==4 print a0 string
+  cout << memory[reg[10]] << endl;
+    }
+  
+    
+    else if (reg[17] == 10) {
+    exit(0);
+}
+
     }
     else if (opcode == 0x0F)
     {
