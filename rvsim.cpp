@@ -69,7 +69,7 @@ void compInstDecExec(unsigned int instWord)
 void instDecExec(unsigned int instWord, bool isCompressed)
 {
     unsigned int rd, rs1, rs2, funct3, funct7, opcode;
-    unsigned int I_imm, S_imm, B_imm, U_imm, J_imm; // debugging: do we need SB_imm or UJ_imm ?
+    signed int I_imm, S_imm, B_imm, U_imm, J_imm; // debugging: do we need SB_imm or UJ_imm ?
     unsigned int address;
 
     unsigned int instPC = pc - 4;
@@ -84,19 +84,55 @@ void instDecExec(unsigned int instWord, bool isCompressed)
     // — inst[31] — inst[30:25] inst[24:21] inst[20]
     I_imm = ((instWord >> 20) & 0x7FF) | (((instWord >> 31) ? 0xFFFFF800 : 0x0)); // why the ORing?
 
-    // Immediate value for U instructions
-    U_imm = instWord;    // Storing whole instruction in immediate
-    U_imm = U_imm >> 12; // Shifting right to exclude first 12 bits of instruction leaving us with the last 20 immediate bits
-    U_imm = U_imm & 0x7FFFF;
+    U_imm = instWord;               // Storing whole instruction in immediate
+    U_imm = U_imm >> 12;            // Shifting right to exclude first 12 bits of instruction leaving us with the last 20 immediate bits
     U_imm = U_imm << 12;
-    // J_imm = U_imm;
+    J_imm = U_imm;
+    J_imm = J_imm + ((J_imm & 0x7FE00000) >> 21); //0111 1111 1110 0000 0000 0000 0000 0000  --> Taking bits 30 to 20 and putting them in bits 0 to 9
+    J_imm = J_imm & 0x801FFFFF;					  //1000 0000 0001 1111 1111 1111 1111 1111  --> Clearing bits 30 to 20
+    J_imm = J_imm + ((J_imm & 0x00200000) >> 11); //0000 0000 0010 0000 0000 0000 0000 0000  --> Taking bit 19 and storing it in bit 11
+    J_imm = J_imm & 0xFFDFFFFF;					  //1111 1111 1101 1111 1111 1111 1111 1111  --> Clearing bit 12 to 19 and putting them in 
+    J_imm = J_imm + ((J_imm & 0x000FF000) << 12); //0000 0000 0000 1111 1111 0000 0000 0000  --> Taking bit 
+    J_imm = J_imm & 0xFFF00FFF;					  //1111 1111 1111 0000 0000 1111 1111 1111 
+    J_imm = J_imm + ((J_imm & 0x000FF000) >> 13);
+    J_imm = J_imm << 1;
+    if (J_imm >> 31)
+    {
+        J_imm = J_imm | 0xFFF00000;
+    }
+    else
+    {
+        J_imm = J_imm | 0x0;
+    }
+    J_imm -= 4; //Temporary --> will be removed
 
-    // Immediate value for B instructions
-    B_imm = ((instWord >> 25) & 0x7F);
-    B_imm = B_imm << 5;
-    B_imm = B_imm + ((instWord >> 7) & 0x1F);
-    S_imm = B_imm;
 
+    //Immediate value for B instructions
+    S_imm = ((instWord >> 25) & 0x7F);
+    S_imm = S_imm << 5;
+    S_imm = S_imm + ((instWord >> 7) & 0x1F);
+    B_imm = S_imm;
+    if (B_imm >> 11)
+    {
+        S_imm = S_imm | 0xFFFFF000;
+    }
+    else
+    {
+        S_imm = S_imm | 0x0;
+    }
+    B_imm = B_imm + ((B_imm & 0x00000800) << 20);
+    B_imm = B_imm + ((B_imm & 0x00000001) << 30);
+    B_imm = B_imm + ((B_imm & 0x000007E0) << 19);
+    B_imm = B_imm + ((B_imm & 0x0000001E) << 19);
+    B_imm = B_imm >> 20;
+    if (B_imm >> 11)
+    {
+        B_imm = B_imm | 0xFFFFF000;
+    }
+    else
+    {
+        B_imm = B_imm | 0x0;
+    }
     // Immediate value for U instructions
 
     printPrefix(instPC, instWord);
@@ -571,7 +607,7 @@ int main(int argc, char *argv[])
     */
 
     // debugging: remove the line below and uncomment the block above when debugging is finished
-    inFile.open("t1.bin", ios::in | ios::binary | ios::ate);
+    inFile.open("t0.bin", ios::in | ios::binary | ios::ate);
 
     /*
         debugging: remove this comment block when debugging is finished
