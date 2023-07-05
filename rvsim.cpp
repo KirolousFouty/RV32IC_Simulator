@@ -42,11 +42,12 @@ void printPrefix(unsigned int instA, unsigned int instW)
 {
     cout << "0x" << hex << std::setfill('0') << std::setw(8) << instA << "\t0x" << std::setw(8) << instW;
 }
-void instCompDecExec(unsigned int instHalf){
- 
 
+void compInstDecExec(unsigned int instHalf)
+{
 }
-void instDecExec(unsigned int instWord,bool compr)
+
+void instDecExec(unsigned int instWord)
 {
     unsigned int rd, rs1, rs2, funct3, funct7, opcode;
     unsigned int I_imm, S_imm, B_imm, U_imm, J_imm; // debugging: do we need SB_imm or UJ_imm ?
@@ -378,13 +379,11 @@ void instDecExec(unsigned int instWord,bool compr)
         cout << "\tECALL\n";
         if (reg[17] == 1) // if a7==1 print a0 integer
         {
-            cout << endl
-                 << (int)reg[10] << endl;
+            cout << (int)reg[10] << endl;
         }
         else if (reg[17] == 4)
         { // if a7==4 print a0 string
-            cout << endl
-                 << memory[reg[10]] << endl;
+            cout << memory[reg[10]] << endl;
         }
         else if (reg[17] == 10)
         {
@@ -448,35 +447,53 @@ void instDecExec(unsigned int instWord,bool compr)
     else if (opcode == 0x63)
     {
         // SB instructions
-
         switch (funct3)
         {
         case 0x0:
+        {
             cout << "\tBEQ\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
-            // debugging: implementation required
+            if (reg[rs1] == reg[rs2])
+                pc += B_imm;
             break;
+        }
+
         case 0x1:
+        {
             cout << "\tBNE\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
-            // debugging: implementation required
+            if (reg[rs1] != reg[rs2])
+                pc += B_imm;
             break;
+        }
         case 0x4:
+        {
             cout << "\tBLT\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << B_imm << "\n";
-            // debugging: implementation required
+            if (reg[rs1] < reg[rs2])
+                pc += B_imm;
             break;
+        }
         case 0x5:
+        {
             cout << "\tBGE\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << B_imm << "\n";
-            // debugging: implementation required
+            if (reg[rs1] > reg[rs2])
+                pc += B_imm;
             break;
+        }
         case 0x6:
+        {
             cout << "\tBLTU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
-            // debugging: implementation required
+            if (reg[rs1] <= reg[rs2])
+                pc += B_imm;
             break;
+        }
         case 0x7:
+        {
             cout << "\tBGEU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
-            // debugging: implementation required
+            if (reg[rs1] >= reg[rs2])
+                pc += B_imm;
             break;
+        }
         default:
-            cout << "\tUnknown SB Instruction\n";
+            cout << "\tUnknown B Instruction\n";
         }
     }
     else if (opcode == 0x37) // LUI
@@ -521,9 +538,9 @@ int main(int argc, char *argv[])
 {
     int counter = 0;
     unsigned int instWord = 0;
-      unsigned int instHalf = 0;
-      int caseComp=0;
-      int caseNComp=0;
+    unsigned int instHalf = 0;
+    int caseComp = 0;
+    int caseNComp = 0;
     ifstream inFile;
     ofstream outFile;
 
@@ -557,7 +574,7 @@ int main(int argc, char *argv[])
 
         while (true)
         {
-            instHalf= (unsigned char)memory[pc] |
+            instHalf = (unsigned char)memory[pc] |
                        (((unsigned char)memory[pc + 1]) << 8);
             instWord = (unsigned char)memory[pc] |
                        (((unsigned char)memory[pc + 1]) << 8) |
@@ -568,33 +585,34 @@ int main(int argc, char *argv[])
             // debugging: remove the line below when debugging is finished
             // cout << bitset<32>(instWord) << endl;
 
-           // pc += 4;
+            // pc += 4;
 
             if (instWord == 0) // debugging: configure the best way to detect the end of the program, and the while(true) loop
                 break;
 
-            caseComp=instHalf&3;
-            caseNComp=instWord&28;
-            if(caseComp!=3){
-                if(caseNComp!=28){
-                 pc+=4;
-                  instDecExec(instWord,0);
+            caseComp = instHalf & 3;
+            caseNComp = instWord & 28;
+            if (caseComp != 3)
+            {
+                if (caseNComp != 28)
+                {
+                    pc += 4;
+                    instDecExec(instWord);
                 }
-                else{
-                    pc+=2;
-                    instCompDecExec(instHalf);
-
-                }
-
-
-            }
-            else{
-                if(caseNComp!=28){
-                 pc+=4;
-                  instDecExec(instWord,0);
+                else
+                {
+                    pc += 2;
+                    compInstDecExec(instHalf);
                 }
             }
-           
+            else
+            {
+                if (caseNComp != 28)
+                {
+                    pc += 4;
+                    instDecExec(instWord);
+                }
+            }
         }
     }
     else
