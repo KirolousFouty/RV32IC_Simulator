@@ -607,7 +607,7 @@ int main(int argc, char *argv[])
     */
 
     // debugging: remove the line below and uncomment the block above when debugging is finished
-    inFile.open("t0.bin", ios::in | ios::binary | ios::ate);
+    inFile.open("t1.bin", ios::in | ios::binary | ios::ate);
 
     /*
         debugging: remove this comment block when debugging is finished
