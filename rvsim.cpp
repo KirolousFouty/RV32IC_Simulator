@@ -45,7 +45,7 @@ void printPrefix(unsigned int instA, unsigned int instW)
 void instDecExec(unsigned int instWord)
 {
     unsigned int rd, rs1, rs2, funct3, funct7, opcode;
-    unsigned int I_imm, S_imm, SB_imm, U_imm, UJ_imm; // debugging: do we need B_imm or J_imm ?
+    unsigned int I_imm, S_imm, B_imm, U_imm, J_imm; // debugging: do we need SB_imm or UJ_imm ?
     unsigned int address;
 
     unsigned int instPC = pc - 4;
@@ -57,8 +57,16 @@ void instDecExec(unsigned int instWord)
     rs2 = (instWord >> 20) & 0x0000001F;
     funct7 = (instWord >> 25) & 0x0000007F;
 
-    // â€” inst[31] â€” inst[30:25] inst[24:21] inst[20]
+    // — inst[31] — inst[30:25] inst[24:21] inst[20]
     I_imm = ((instWord >> 20) & 0x7FF) | (((instWord >> 31) ? 0xFFFFF800 : 0x0)); // why the ORing?
+
+    U_imm = instWord;
+    U_imm = U_imm >> 12;
+    U_imm = U_imm & 0x7FFFF;
+    U_imm = U_imm << 12;
+    J_imm = instWord;
+    I_imm = I_imm >> 12;
+    I_imm = I_imm & 0x7FFFF;
 
     printPrefix(instPC, instWord);
 
@@ -109,7 +117,7 @@ void instDecExec(unsigned int instWord)
             {
                 cout << "\tSLL\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 reg[rd] = rs1 << rs2; // debugging: should rs2 be cast to signed?
-                                      // debugging: in RARS, if rs2 is negative, rs1 is set to 0
+                // debugging: in RARS, if rs2 is negative, rs1 is set to 0
             }
             break;
 
@@ -118,7 +126,7 @@ void instDecExec(unsigned int instWord)
             {
                 cout << "\tSRL\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 reg[rd] = rs1 >> rs2; // debugging: should rs2 be cast to signed?
-                                      // debugging: in RARS, if rs2 is negative, rs1 is set to 0
+                // debugging: in RARS, if rs2 is negative, rs1 is set to 0
             }
             else if (funct7 == 0x20)
             {
@@ -127,8 +135,8 @@ void instDecExec(unsigned int instWord)
 
                 bool isNeg = reg[rs1] & 0x80000000;
                 reg[rd] = rs1 >> rs2; // debugging: should rs2 be cast to signed?
-                                      // debugging: in RARS, if rs1 is positive and rs2 is negative, rd is set to 0
-                                      // debugging: in RARS, if rs1 is negative and rs2 is negative, rd is set to -1
+                // debugging: in RARS, if rs1 is positive and rs2 is negative, rd is set to 0
+                // debugging: in RARS, if rs1 is negative and rs2 is negative, rd is set to -1
                 if (isNeg)
                 {
                     for (unsigned int i = 0; i < temp; i++)
@@ -186,7 +194,6 @@ void instDecExec(unsigned int instWord)
     {
         // I instructions
 
-       
         switch (funct3)
         {
         case 0:
@@ -230,18 +237,20 @@ void instDecExec(unsigned int instWord)
             else if (funct7 == 0x20)
             {
                 cout << "\tSRAI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
-                if ((int)I_imm < 0 && reg[rs1]>=0) {
+                if ((int)I_imm < 0 && reg[rs1] >= 0)
+                {
                     reg[rd] = 0b0;
                 }
-                else if ((int)I_imm < 0 && reg[rs1]<0) {
+                else if ((int)I_imm < 0 && reg[rs1] < 0)
+                {
                     reg[rd] = -1;
                 }
-                else {
+                else
+                {
                     unsigned int temp = rs2;
 
                     bool isNeg = reg[rs1] & 0x80000000;
                     reg[rd] = rs1 >> (int)I_imm;
-
 
                     for (unsigned int i = 0; i < temp; i++)
                     {
@@ -249,7 +258,6 @@ void instDecExec(unsigned int instWord)
                     }
                 }
             }
-
 
             break;
         case 0x6:
@@ -261,8 +269,6 @@ void instDecExec(unsigned int instWord)
             reg[rd] = reg[rs1] & (int)I_imm;
             break;
 
-
-       
         default:
             cout << "\tUnkown I Instruction \n";
         }
@@ -303,8 +309,9 @@ void instDecExec(unsigned int instWord)
     }
     else if (opcode == 0x23)
     {
+        S_imm = 0;
         // S instructions
-switch (funct3)
+        switch (funct3)
         {
         case 0x0:
             cout << "\tSB\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
@@ -321,62 +328,75 @@ switch (funct3)
         default:
             cout << "\tUnknown S Instruction\n";
         }
-
-        
     }
     else if (opcode == 0x63)
     {
         // SB instructions
+        B_imm = ((instWord >> 25) & 0x7F);
+        B_imm = B_imm << 5;
+        B_imm = B_imm + ((instWord >> 7) & 0x1F);
 
         switch (funct3)
         {
         case 0x0:
-            cout << "\tBEQ\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << SB_imm << "\n";
+            cout << "\tBEQ\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
             // debugging: implementation required
             break;
         case 0x1:
-            cout << "\tBNE\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << SB_imm << "\n";
+            cout << "\tBNE\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
             // debugging: implementation required
             break;
         case 0x4:
-            cout << "\tBLT\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << SB_imm << "\n";
+            cout << "\tBLT\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << B_imm << "\n";
             // debugging: implementation required
             break;
         case 0x5:
-            cout << "\tBGE\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << SB_imm << "\n";
+            cout << "\tBGE\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << B_imm << "\n";
             // debugging: implementation required
             break;
         case 0x6:
-            cout << "\tBLTU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << SB_imm << "\n";
+            cout << "\tBLTU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
             // debugging: implementation required
             break;
         case 0x7:
-            cout << "\tBGEU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << SB_imm << "\n";
+            cout << "\tBGEU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
             // debugging: implementation required
             break;
         default:
             cout << "\tUnknown SB Instruction\n";
         }
     }
-    else if (opcode == 0x6F)
+    else if (opcode == 0x37) // LUI
     {
-        // UJ instructions
-        cout << "\tJAL\tx" << dec << rd << hex << ", 0x" << (int)UJ_imm << "\n";
-        // debugging: implementation required
+        reg[rd] = reg[rd] + (int)U_imm << 12;
+        cout << "\tLUI\tx" << rd << ", " << hex << "0x" << (int)U_imm << "\n";
     }
-    else if (opcode == 0x17)
+    else if (opcode == 0x17) // AUIPC
     {
-        // U instructions
-
-        cout << "\tAUIPC\tx" << dec << rd << hex << ", 0x" << (int)U_imm << "\n";
-        // debugging: implementation required
+        reg[rd] = (int)pc + (int)U_imm;
+        cout << "\tAUIPC\tx" << rd << ", " << hex << "0x" << (int)U_imm << "\n";
     }
-    else if (opcode == 0x37)
+    else if (opcode == 0x6F) // JAL
     {
-        // U instructions
-
-        cout << "\tLUI\tx" << dec << rd << hex << ", 0x" << (int)U_imm << "\n";
-        // debugging: implementation required
+        // debugging: check addition to pc
+        reg[rd] = (int)pc + 4;
+        pc += J_imm;
+        cout << "\tJAL\tx" << rd << ", " << hex << "0x" << (int)J_imm << "\n";
+        pc = reg[rd]; // debugging: remove before submission
+    }
+    else if (opcode == 0x67) // JALR
+    {
+        switch (funct3)
+        {
+        case 0x0:
+            reg[rd] = (int)pc + 4;
+            pc = reg[rs1] + (int)I_imm;
+            cout << "\tJALR\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            pc = reg[rd];
+            break;
+        default:
+            cout << "\tUnkown Instruction Type \n";
+        }
     }
     else
     {
@@ -439,5 +459,5 @@ int main(int argc, char *argv[])
         }
     }
     else
-        emitError("Cannot access input file\n");
+        emitError("Cannot access input file\n");
 }
