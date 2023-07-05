@@ -32,7 +32,7 @@ unsigned int pc;
 unsigned char memory[(16 + 64) * 1024];
 unsigned int reg[32];
 
-void emitError(const char *s)
+void emitError(const char* s)
 {
     cout << s;
     exit(0);
@@ -87,7 +87,7 @@ void instDecExec(unsigned int instWord, bool isCompressed)
     U_imm = instWord;               // Storing whole instruction in immediate
     U_imm = U_imm >> 12;            // Shifting right to exclude first 12 bits of instruction leaving us with the last 20 immediate bits
     U_imm = U_imm << 12;
-    J_imm = U_imm;
+     J_imm = U_imm;
     J_imm = J_imm + ((J_imm & 0x7FE00000) >> 21); //0111 1111 1110 0000 0000 0000 0000 0000  --> Taking bits 30 to 20 and putting them in bits 0 to 9
     J_imm = J_imm & 0x801FFFFF;					  //1000 0000 0001 1111 1111 1111 1111 1111  --> Clearing bits 30 to 20
     J_imm = J_imm + ((J_imm & 0x00200000) >> 11); //0000 0000 0010 0000 0000 0000 0000 0000  --> Taking bit 19 and storing it in bit 11
@@ -106,6 +106,11 @@ void instDecExec(unsigned int instWord, bool isCompressed)
     }
     J_imm -= 4; //Temporary --> will be removed
 
+    // Immediate value for B instructions
+    B_imm = ((instWord >> 25) & 0x7F);
+    B_imm = B_imm << 5;
+    B_imm = B_imm + ((instWord >> 7) & 0x1F);
+    S_imm = B_imm;
 
     //Immediate value for B instructions
     S_imm = ((instWord >> 25) & 0x7F);
@@ -135,7 +140,11 @@ void instDecExec(unsigned int instWord, bool isCompressed)
     }
     // Immediate value for U instructions
 
-    printPrefix(instPC, instWord);
+    if (isCompressed == 0) {
+
+        printPrefix(instPC, instWord);
+    }
+    
 
     if (opcode == 0x33)
     { // R Instructions
@@ -146,7 +155,14 @@ void instDecExec(unsigned int instWord, bool isCompressed)
         {
             if (funct7 == 0x0)
             {
-                cout << "\tADD\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                if (isCompressed == 0) {
+                    cout << "\tADD\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                }
+                else if (isCompressed == 1) {
+
+                    cout << "\tC.ADD\tx" << dec << rd << ", x" << rs2 << "\n";
+                }
+                
                 reg[rd] = reg[rs1] + reg[rs2];
             }
             else if (funct7 == 0x20)
@@ -589,7 +605,72 @@ void instDecExec(unsigned int instWord, bool isCompressed)
     }
 }
 
-int main(int argc, char *argv[])
+
+
+void compInstDecExec(unsigned int instWord)
+{
+    unsigned int rd, rs1_dash, rs2_dash, rs2, funct4, funct3, opcode;
+
+    unsigned int instPC = pc - 2;
+
+
+    opcode = instWord & 0x00000003;
+    rs2 = (instWord >> 2) & 0x0000001F;
+    rd = (instWord >> 7) & 0x0000001F;
+    funct4 = (instWord >> 12) & 0x0000000F;
+    funct3 = (instWord >> 13) & 0x00000007;
+    rs1_dash = (instWord >> 7) & 0x00000007;
+    rs2_dash = (instWord >> 2) & 0x00000007;
+
+    //   cout << "func4 is " << bitset<4>(funct4) << endl;
+    //   cout << "rd is " << bitset<5>(rd) << endl;
+    //   cout << "rs2 is " << bitset<5>(rs2) << endl;
+    //   cout << "opcode is " << bitset<2>(opcode) << endl;
+
+    printPrefix(instPC, instWord);
+
+    unsigned int instWord_Decompressed;
+
+    if (opcode == 0x2) {
+        // CR Format
+        switch (funct4)
+        {
+        case 0x9:
+        {
+            if (rd != 0 & rs2 != 0) {
+                //C.ADD --------> ADD
+                instWord_Decompressed = 0b0000000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs2;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rd;
+                instWord_Decompressed = instWord_Decompressed << 3;
+                instWord_Decompressed = instWord_Decompressed + 0b000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rd;
+                instWord_Decompressed = instWord_Decompressed << 7;
+                instWord_Decompressed = instWord_Decompressed + 0b0110011;
+
+                // cout << "The Compressed Word is " << bitset<32>(instWord_Decompressed) << endl;
+                instDecExec(instWord_Decompressed, 1);
+            }
+
+            else if (rd != 0 & rs2 == 0) {
+                //C.JALR
+
+            }
+
+
+        }
+
+        }
+
+    }
+
+}
+
+
+int main(int argc, char* argv[])
 {
     int counter = 0;
     unsigned int instWord = 0;
@@ -624,52 +705,55 @@ int main(int argc, char *argv[])
     {
         int fsize = inFile.tellg();
         inFile.seekg(0, inFile.beg);
-        if (!inFile.read((char *)memory, fsize))
+        if (!inFile.read((char*)memory, fsize))
             emitError("Cannot read from input file\n");
 
-        while (true)
-        {
-            instHalf = (unsigned char)memory[pc] |
-                       (((unsigned char)memory[pc + 1]) << 8);
-            instWord = (unsigned char)memory[pc] |
-                       (((unsigned char)memory[pc + 1]) << 8) |
-                       (((unsigned char)memory[pc + 2]) << 16) |
-                       (((unsigned char)memory[pc + 3]) << 24);
-            counter++;
+        compInstDecExec(0x9192);
 
-            // debugging: remove the line below when debugging is finished
-            // cout << bitset<32>(instWord) << endl;
+        /*  while (true)
+          {
+              instHalf = (unsigned char)memory[pc] |
+                  (((unsigned char)memory[pc + 1]) << 8);
+              instWord = (unsigned char)memory[pc] |
+                  (((unsigned char)memory[pc + 1]) << 8) |
+                  (((unsigned char)memory[pc + 2]) << 16) |
+                  (((unsigned char)memory[pc + 3]) << 24);
+              counter++;
 
-            // pc += 4;
+              // debugging: remove the line below when debugging is finished
+              // cout << bitset<32>(instWord) << endl;
 
-            if (instWord == 0) // debugging: configure the best way to detect the end of the program, and the while(true) loop
-                break;
+              // pc += 4;
 
-            caseComp = instHalf & 3;
-            caseNComp = instWord & 28;
-            if (caseComp != 3)
-            {
-                if (caseNComp != 28)
-                {
-                    pc += 4;
-                    instDecExec(instWord, 0);
-                }
-                else
-                {
-                    pc += 2;
-                    compInstDecExec(instHalf);
-                }
-            }
-            else
-            {
-                if (caseNComp != 28)
-                {
-                    pc += 4;
-                    instDecExec(instWord, 0);
-                }
-            }
-        }
+              if (instWord == 0) // debugging: configure the best way to detect the end of the program, and the while(true) loop
+                  break;
+
+              caseComp = instHalf & 3;
+              caseNComp = instWord & 28;
+              if (caseComp != 3)
+              {
+                  if (caseNComp != 28)
+                  {
+                      pc += 4;
+                      instDecExec(instWord, 0);
+                  }
+                  else
+                  {
+                      pc += 2;
+                      compInstDecExec(instHalf);
+                  }
+              }
+              else
+              {
+                  if (caseNComp != 28)
+                  {
+                      pc += 4;
+                      instDecExec(instWord, 0);
+                  }
+              }
+          }
+      }
+      else
+          emitError("Cannot access input file\n");*/
     }
-    else
-        emitError("Cannot access input file\n");
 }
