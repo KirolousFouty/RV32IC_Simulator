@@ -43,11 +43,30 @@ void printPrefix(unsigned int instA, unsigned int instW)
     cout << "0x" << hex << std::setfill('0') << std::setw(8) << instA << "\t0x" << std::setw(8) << instW;
 }
 
-void compInstDecExec(unsigned int instHalf)
+void compInstDecExec(unsigned int instWord)
 {
+ unsigned int rd, rs1_dash, rs2_dash, rs2, funct4, funct3, opcode;
+
+    unsigned int instPC = pc - 2;
+
+
+    opcode = instWord & 0x00000003;
+    rs2 = (instWord >> 2) & 0x0000001F;
+    rd = (instWord >> 7) & 0x0000001F;
+    funct4 = (instWord >> 12) & 0x0000000F;
+    funct3 = (instWord >> 13) & 0x00000007;
+    rs1_dash = (instWord >> 7) & 0x00000007;
+    rs2_dash = (instWord >> 2) & 0x00000007;
+
+ //   cout << "func4 is " << bitset<4>(funct4) << endl;
+ //   cout << "rd is " << bitset<5>(rd) << endl;
+ //   cout << "rs2 is " << bitset<5>(rs2) << endl;
+ //   cout << "opcode is " << bitset<2>(opcode) << endl;
+
+    printPrefix(instPC, instWord);
 }
 
-void instDecExec(unsigned int instWord)
+void instDecExec(unsigned int instWord, bool isCompressed)
 {
     unsigned int rd, rs1, rs2, funct3, funct7, opcode;
     unsigned int I_imm, S_imm, B_imm, U_imm, J_imm; // debugging: do we need SB_imm or UJ_imm ?
@@ -597,7 +616,7 @@ int main(int argc, char *argv[])
                 if (caseNComp != 28)
                 {
                     pc += 4;
-                    instDecExec(instWord);
+                    instDecExec(instWord, 0);
                 }
                 else
                 {
@@ -610,7 +629,7 @@ int main(int argc, char *argv[])
                 if (caseNComp != 28)
                 {
                     pc += 4;
-                    instDecExec(instWord);
+                    instDecExec(instWord, 0);
                 }
             }
         }
