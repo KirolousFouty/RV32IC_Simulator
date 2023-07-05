@@ -60,13 +60,21 @@ void instDecExec(unsigned int instWord)
     // — inst[31] — inst[30:25] inst[24:21] inst[20]
     I_imm = ((instWord >> 20) & 0x7FF) | (((instWord >> 31) ? 0xFFFFF800 : 0x0)); // why the ORing?
 
-    U_imm = instWord;
-    U_imm = U_imm >> 12;
+    //Immediate value for U instructions
+    U_imm = instWord;               // Storing whole instruction in immediate
+    U_imm = U_imm >> 12;            // Shifting right to exclude first 12 bits of instruction leaving us with the last 20 immediate bits
     U_imm = U_imm & 0x7FFFF;
     U_imm = U_imm << 12;
-    J_imm = instWord;
-    I_imm = I_imm >> 12;
-    I_imm = I_imm & 0x7FFFF;
+    J_imm = U_imm;
+
+
+    //Immediate value for B instructions
+    B_imm = ((instWord >> 25) & 0x7F);
+    B_imm = B_imm << 5;
+    B_imm = B_imm + ((instWord >> 7) & 0x1F);
+    S_imm = B_imm;
+
+    //Immediate value for U instructions
 
     printPrefix(instPC, instWord);
 
@@ -332,9 +340,7 @@ void instDecExec(unsigned int instWord)
     else if (opcode == 0x63)
     {
         // SB instructions
-        B_imm = ((instWord >> 25) & 0x7F);
-        B_imm = B_imm << 5;
-        B_imm = B_imm + ((instWord >> 7) & 0x1F);
+
 
         switch (funct3)
         {
