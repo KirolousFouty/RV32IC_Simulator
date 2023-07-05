@@ -41,8 +41,11 @@ void printPrefix(unsigned int instA, unsigned int instW)
 {
     cout << "0x" << hex << std::setfill('0') << std::setw(8) << instA << "\t0x" << std::setw(8) << instW;
 }
+void instCompDecExec(unsigned int instHalf){
+ 
 
-void instDecExec(unsigned int instWord)
+}
+void instDecExec(unsigned int instWord,bool compr)
 {
     unsigned int rd, rs1, rs2, funct3, funct7, opcode;
     unsigned int I_imm, S_imm, B_imm, U_imm, J_imm; // debugging: do we need SB_imm or UJ_imm ?
@@ -424,6 +427,9 @@ int main(int argc, char *argv[])
 {
     int counter = 0;
     unsigned int instWord = 0;
+      unsigned int instHalf = 0;
+      int caseComp=0;
+      int caseNComp=0;
     ifstream inFile;
     ofstream outFile;
 
@@ -457,6 +463,8 @@ int main(int argc, char *argv[])
 
         while (true)
         {
+            instHalf= (unsigned char)memory[pc] |
+                       (((unsigned char)memory[pc + 1]) << 8);
             instWord = (unsigned char)memory[pc] |
                        (((unsigned char)memory[pc + 1]) << 8) |
                        (((unsigned char)memory[pc + 2]) << 16) |
@@ -466,14 +474,35 @@ int main(int argc, char *argv[])
             // debugging: remove the line below when debugging is finished
             // cout << bitset<32>(instWord) << endl;
 
-            pc += 4;
+           // pc += 4;
 
             if (instWord == 0) // debugging: configure the best way to detect the end of the program, and the while(true) loop
                 break;
 
-            instDecExec(instWord);
+            caseComp=instHalf&3;
+            caseNComp=instWord&28;
+            if(caseComp!=3){
+                if(caseNComp!=28){
+                 pc+=4;
+                  instDecExec(instWord,0);
+                }
+                else{
+                    pc+=2;
+                    instCompDecExec(instHalf);
+
+                }
+
+
+            }
+            else{
+                if(caseNComp!=28){
+                 pc+=4;
+                  instDecExec(instWord,0);
+                }
+            }
+           
         }
     }
     else
-        emitError("Cannot access input file\n");
+        emitError("Cannot access input file\n");
 }
