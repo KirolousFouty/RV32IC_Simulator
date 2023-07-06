@@ -32,6 +32,9 @@ using namespace std;
 unsigned int pc;
 unsigned char memory[(16 + 64) * 1024];
 unsigned int reg[32];
+unsigned int stack[1024];
+// unsigned int sp = (unsigned int)((unsigned int)(&stack) + (16 * 1024));
+
 vector<unsigned int> symbol_table;
 int count;
 
@@ -41,21 +44,761 @@ void emitError(const char *s)
     exit(0);
 }
 
-void addLabel(unsigned int imm, int &count, unsigned int instWord)
-{
-}
-
 void printPrefix(unsigned int instA, unsigned int instW)
 {
     cout << "0x" << hex << std::setfill('0') << std::setw(8) << instA << "\t0x" << std::setw(8) << instW;
 }
 
-void decompress(unsigned int &instWord)
+unsigned int decompress(unsigned int instWord)
 {
-    // decompress
+    unsigned int rd, rs1_dash, rs2_dash, rd_dash, rs2, funct4, funct3, opcode;
+
+    unsigned int CS_imm, CS_imm_v2, CL_imm;
+    unsigned int instPC = pc - 2;
+
+    opcode = instWord & 0x00000003;
+    rs2 = (instWord >> 2) & 0x0000001F;
+    rd = (instWord >> 7) & 0x0000001F;
+    funct4 = (instWord >> 12) & 0x0000000F;
+    funct3 = (instWord >> 13) & 0x00000007;
+    rs1_dash = (instWord >> 7) & 0x00000007;
+    rs2_dash = (instWord >> 2) & 0x00000007;
+    rd_dash = (instWord >> 2) & 0x00000007;
+
+    CS_imm = (instWord >> 5) & 0x00000001;
+    CS_imm = CS_imm << 3;
+    CS_imm = CS_imm + ((instWord >> 10) & 0x00000007);
+    CS_imm = CS_imm << 1;
+    CS_imm = CS_imm + ((instWord >> 6) & 0x00000001);
+    CS_imm = CS_imm << 2;
+
+    CS_imm_v2 = (instWord >> 10) & 0x00000007;
+    CS_imm_v2 = CS_imm_v2 << 2;
+    CS_imm_v2 = CS_imm_v2 + ((instWord >> 5) & 0x00000003);
+
+    CL_imm = (instWord >> 5) & 0x00000001;
+    CL_imm = CL_imm << 3;
+    CL_imm = CL_imm + ((instWord >> 10) & 0x00000007);
+    CL_imm = CL_imm << 1;
+    CL_imm = CL_imm + ((instWord >> 6) & 0x00000001);
+    CL_imm = CL_imm << 2;
+
+    int MSF;
+
+    //   cout << "func4 is " << bitset<4>(funct4) << endl;
+    //   cout << "rd is " << bitset<5>(rd) << endl;
+    //   cout << "rs2 is " << bitset<5>(rs2) << endl;
+    //   cout << "opcode is " << bitset<2>(opcode) << endl;
+
+    // printPrefix(instPC, instWord);
+
+    unsigned int instWord_Decompressed;
+
+    if (opcode == 0x2)
+    {
+        // CR Format
+        switch (funct4)
+        {
+        case 0x9:
+        {
+            if (rd != 0 & rs2 != 0)
+            {
+                // C.ADD --------> ADD
+                instWord_Decompressed = 0b0000000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs2;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rd;
+                instWord_Decompressed = instWord_Decompressed << 3;
+                instWord_Decompressed = instWord_Decompressed + 0b000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rd;
+                instWord_Decompressed = instWord_Decompressed << 7;
+                instWord_Decompressed = instWord_Decompressed + 0b0110011;
+
+                // cout << endl << "The Compressed Word is C.ADD and is " << bitset<32>(instWord_Decompressed) << endl;
+                // translateInstruction(instWord_Decompressed, 1);
+                return instWord_Decompressed;
+            }
+
+            else if (rd != 0 & rs2 == 0)
+            {
+                // C.JALR -------> JALR
+                instWord_Decompressed = 0b000000000000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rd;
+                instWord_Decompressed = instWord_Decompressed << 3;
+                instWord_Decompressed = instWord_Decompressed + 0b000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + 0b00001;
+                instWord_Decompressed = instWord_Decompressed << 7;
+                instWord_Decompressed = instWord_Decompressed + 0b1100111;
+
+                // cout << endl << "The Compressed Word is C.JALR and is " << bitset<32>(instWord_Decompressed) << endl;
+                // translateInstruction(instWord_Decompressed, 1);
+                return instWord_Decompressed;
+            }
+
+            break;
+        }
+
+        case 0x8:
+        {
+            if (rd != 0 & rs2 == 0)
+            {
+                // C.JR ------> JALR
+                instWord_Decompressed = 0b000000000000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rd;
+                instWord_Decompressed = instWord_Decompressed << 3;
+                instWord_Decompressed = instWord_Decompressed + 0b000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + 0b00000;
+                instWord_Decompressed = instWord_Decompressed << 7;
+                instWord_Decompressed = instWord_Decompressed + 0b1100111;
+
+                // cout << endl << "The Compressed Word is C.JR and is " << bitset<32>(instWord_Decompressed) << endl;
+                // translateInstruction(instWord_Decompressed, 1);
+                return instWord_Decompressed;
+            }
+
+            else if (rd != 0 & rs2 != 0)
+            {
+                // C.MV ------> ADD
+
+                instWord_Decompressed = 0b0000000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs2;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + 0b00000;
+                instWord_Decompressed = instWord_Decompressed << 3;
+                instWord_Decompressed = instWord_Decompressed + 0b000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rd;
+                instWord_Decompressed = instWord_Decompressed << 7;
+                instWord_Decompressed = instWord_Decompressed + 0b0110011;
+
+                // cout << endl << "The Compressed Word is C.MV and is " << bitset<32>(instWord_Decompressed) << endl;
+                // translateInstruction(instWord_Decompressed, 1);
+                return instWord_Decompressed;
+            }
+
+            break;
+        }
+        }
+    }
+
+    else if (opcode == 0x0)
+    {
+
+        switch (funct3)
+        {
+        case 0x6:
+        {
+            // C.SW
+            MSF = (instWord >> 5) & 0x00000001;
+
+            // cout << "MSF is now " << MSF << endl;
+            if (MSF == 1)
+            {
+
+                instWord_Decompressed = 0b1111111;
+            }
+
+            else if (MSF == 0)
+            {
+                instWord_Decompressed = 0b0000000;
+            }
+
+            // cout << "CS IMM " <<  bitset<8>(CS_imm) << endl;
+            instWord_Decompressed = instWord_Decompressed << 5;
+            instWord_Decompressed = instWord_Decompressed + rs1_dash;
+            instWord_Decompressed = instWord_Decompressed << 5;
+            instWord_Decompressed = instWord_Decompressed + rs2_dash;
+            instWord_Decompressed = instWord_Decompressed << 3;
+            instWord_Decompressed = instWord_Decompressed + 0b010;
+            instWord_Decompressed = instWord_Decompressed << 5;
+            instWord_Decompressed = instWord_Decompressed + CS_imm;
+            instWord_Decompressed = instWord_Decompressed << 7;
+            instWord_Decompressed = instWord_Decompressed + 0b0100011;
+
+            //  cout << endl << "The Compressed Word is C.SW and is " << bitset<32>(instWord_Decompressed) << endl;
+            // translateInstruction(instWord_Decompressed, 1);
+            return instWord_Decompressed;
+        }
+
+        case 0x2:
+        {
+            // C.LW
+            // cout << "CL_IMM is now " << bitset<7>(CL_imm) << endl;
+            MSF = (instWord >> 5) & 0x00000001;
+
+            // cout << "MSF is now " << MSF << endl;
+            if (MSF == 1)
+            {
+
+                instWord_Decompressed = 0b1111111;
+            }
+
+            else if (MSF == 0)
+            {
+                instWord_Decompressed = 0b0000000;
+            }
+            instWord_Decompressed = instWord_Decompressed + CL_imm;
+            instWord_Decompressed = instWord_Decompressed << 5;
+            instWord_Decompressed = instWord_Decompressed + rs1_dash;
+            instWord_Decompressed = instWord_Decompressed << 3;
+            instWord_Decompressed = instWord_Decompressed + 0b010;
+            instWord_Decompressed = instWord_Decompressed << 5;
+            instWord_Decompressed = instWord_Decompressed + rd_dash;
+            instWord_Decompressed = instWord_Decompressed << 7;
+            instWord_Decompressed = instWord_Decompressed + 0b0000011;
+
+            // cout << endl << "The Compressed Word is C.LW and is " << bitset<32>(instWord_Decompressed) << endl;
+            // translateInstruction(instWord_Decompressed, 1);
+            return instWord_Decompressed;
+        }
+        }
+    }
+
+    else if (opcode == 0x1)
+    {
+
+        switch (funct3)
+        {
+        case 0x4:
+        {
+            // cout << "CS_imm_v2 is " << bitset<5>(CS_imm_v2) << endl;
+            if (CS_imm_v2 == 0b01111)
+            {
+                // C.AND
+
+                instWord_Decompressed = 0b0000000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs2_dash;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs1_dash;
+                instWord_Decompressed = instWord_Decompressed << 3;
+                instWord_Decompressed = instWord_Decompressed + 0b111;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs1_dash;
+                instWord_Decompressed = instWord_Decompressed << 7;
+                instWord_Decompressed = instWord_Decompressed + 0b0110011;
+
+                //   cout << endl << "The Compressed Word is C.AND and is " << bitset<32>(instWord_Decompressed) << endl;
+                // translateInstruction(instWord_Decompressed, 1);
+                return instWord_Decompressed;
+            }
+
+            else if (CS_imm_v2 == 0b01110)
+            {
+                // C.OR
+
+                instWord_Decompressed = 0b0000000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs2_dash;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs1_dash;
+                instWord_Decompressed = instWord_Decompressed << 3;
+                instWord_Decompressed = instWord_Decompressed + 0b110;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs1_dash;
+                instWord_Decompressed = instWord_Decompressed << 7;
+                instWord_Decompressed = instWord_Decompressed + 0b0110011;
+
+                //   cout << endl << "The Compressed Word is C.OR and is " << bitset<32>(instWord_Decompressed) << endl;
+                // translateInstruction(instWord_Decompressed, 1);
+                return instWord_Decompressed;
+            }
+
+            else if (CS_imm_v2 == 0b01101)
+            {
+                // C.XOR
+
+                instWord_Decompressed = 0b0000000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs2_dash;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs1_dash;
+                instWord_Decompressed = instWord_Decompressed << 3;
+                instWord_Decompressed = instWord_Decompressed + 0b100;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs1_dash;
+                instWord_Decompressed = instWord_Decompressed << 7;
+                instWord_Decompressed = instWord_Decompressed + 0b0110011;
+
+                //   cout << endl << "The Compressed Word is C.XOR and is " << bitset<32>(instWord_Decompressed) << endl;
+                // translateInstruction(instWord_Decompressed, 1);
+                return instWord_Decompressed;
+            }
+
+            else if (CS_imm_v2 == 0b01100)
+            {
+                // C.SUB
+
+                instWord_Decompressed = 0b00100000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs2_dash;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs1_dash;
+                instWord_Decompressed = instWord_Decompressed << 3;
+                instWord_Decompressed = instWord_Decompressed + 0b000;
+                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = instWord_Decompressed + rs1_dash;
+                instWord_Decompressed = instWord_Decompressed << 7;
+                instWord_Decompressed = instWord_Decompressed + 0b0110011;
+
+                //   cout << endl << "The Compressed Word is C.SUB and is " << bitset<32>(instWord_Decompressed) << endl;
+                // translateInstruction(instWord_Decompressed, 1);
+                return instWord_Decompressed;
+            }
+        }
+        }
+    }
+    return instWord_Decompressed;
 }
 
 void translateInstruction(unsigned int instWord, bool isCompressed)
+{
+    unsigned int rd, rs1, rs2, funct3, funct7, opcode;
+    signed int I_imm, S_imm, B_imm, U_imm, J_imm; // debugging: do we need SB_imm or UJ_imm ?
+    unsigned int address;
+
+    unsigned int instPC = pc - 4;
+
+    opcode = instWord & 0x0000007F;
+    rd = (instWord >> 7) & 0x0000001F;
+    funct3 = (instWord >> 12) & 0x00000007;
+    rs1 = (instWord >> 15) & 0x0000001F;
+    rs2 = (instWord >> 20) & 0x0000001F;
+    funct7 = (instWord >> 25) & 0x0000007F;
+
+    // — inst[31] — inst[30:25] inst[24:21] inst[20]
+    I_imm = ((instWord >> 20) & 0x7FF) | (((instWord >> 31) ? 0xFFFFF800 : 0x0)); // why the ORing?
+
+    U_imm = instWord;    // Storing whole instruction in immediate
+    U_imm = U_imm >> 12; // Shifting right to exclude first 12 bits of instruction leaving us with the last 20 immediate bits
+    U_imm = U_imm << 12;
+
+    reg[rd] = (int)pc + 4;
+    J_imm = 0;
+    J_imm = J_imm + instWord & 0x80000000;
+    J_imm = J_imm + ((instWord & 0x000FF000) << 11);
+    J_imm = J_imm + ((instWord & 0x00100000) << 2);
+    J_imm = J_imm + ((instWord & 0x7FE00000) >> 9);
+    J_imm = J_imm >> 12;
+    // J_imm = J_imm << 1;
+    if (J_imm >> 11)
+    {
+        J_imm = J_imm | 0xFFF00000;
+    }
+    else
+    {
+        J_imm = J_imm | 0x0;
+    }
+
+    // Immediate value for B instructions
+    B_imm = ((instWord >> 25) & 0x7F);
+    B_imm = B_imm << 5;
+    B_imm = B_imm + ((instWord >> 7) & 0x1F);
+    S_imm = B_imm;
+
+    // Immediate value for B instructions
+    S_imm = ((instWord >> 25) & 0x7F);
+    S_imm = S_imm << 5;
+    S_imm = S_imm + ((instWord >> 7) & 0x1F);
+    B_imm = S_imm;
+    if (B_imm >> 11)
+    {
+        S_imm = S_imm | 0xFFFFF000;
+    }
+    else
+    {
+        S_imm = S_imm | 0x0;
+    }
+    B_imm = B_imm + ((B_imm & 0x00000800) << 20);
+    B_imm = B_imm + ((B_imm & 0x00000001) << 30);
+    B_imm = B_imm + ((B_imm & 0x000007E0) << 19);
+    B_imm = B_imm + ((B_imm & 0x0000001E) << 19);
+    B_imm = B_imm >> 20;
+    if (B_imm >> 11)
+    {
+        B_imm = B_imm | 0xFFFFF000;
+    }
+    else
+    {
+        B_imm = B_imm | 0x0;
+    }
+    // Immediate value for U instructions
+
+    if (isCompressed == 0)
+    {
+        printPrefix(instPC, instWord);
+    }
+
+    if (opcode == 0x33)
+    { // R Instructions
+        switch (funct3)
+        {
+        case 0x0:
+        {
+            if (funct7 == 0x0)
+            {
+                if (isCompressed == 0)
+                {
+                    cout << "\tADD\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                }
+                else if (isCompressed == 1)
+                {
+
+                    if (rs1 == 0b00000)
+                    {
+                        cout << "\tC.MV\tx" << dec << rd << ", x" << rs2 << "\n";
+                    }
+                    else
+                    {
+                        cout << "\tC.ADD\tx" << dec << rd << ", x" << rs2 << "\n";
+                    }
+                }
+            }
+            else if (funct7 == 0x20)
+            {
+                if (isCompressed == 0)
+                {
+                    cout << "\tSUB\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                }
+                else if (isCompressed == 1)
+                {
+                    cout << "\tC.SUB\tx" << dec << rd << ", x" << rs2 << "\n";
+                }
+            }
+            break;
+        }
+
+        case 0x4:
+        {
+            if (funct7 == 0x00)
+            {
+                if (isCompressed == 0)
+                {
+                    cout << "\tXOR\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                }
+
+                else if (isCompressed == 1)
+                {
+                    cout << "\tC.XOR\tx" << dec << rd << ", x" << rs2 << "\n";
+                }
+            }
+            break;
+        }
+
+        case 0x6:
+        {
+            if (funct7 == 0x00)
+            {
+                if (isCompressed == 0)
+                {
+                    cout << "\tOR\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                }
+                if (isCompressed == 1)
+                {
+                    cout << "\tC.OR\tx" << dec << rd << ", x" << rs2 << "\n";
+                }
+            }
+            break;
+        }
+
+        case 0x7:
+        {
+            if (funct7 == 0x00)
+            {
+                if (isCompressed == 0)
+                {
+                    cout << "\tAND\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                }
+                else if (isCompressed == 1)
+                {
+                    cout << "\tC.AND\tx" << dec << rd << ", x" << rs2 << "\n";
+                }
+            }
+            break;
+        }
+
+        case 0x1:
+        {
+            if (funct7 == 0x00)
+            {
+                cout << "\tSLL\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+            }
+            break;
+        }
+        case 0x5:
+        {
+            if (funct7 == 0x00)
+            {
+                cout << "\tSRL\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+            }
+            else if (funct7 == 0x20)
+            {
+                cout << "\tSRA\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+            }
+            break;
+        }
+
+        case 0x2:
+        {
+            if (funct7 == 0x0)
+            {
+                cout << "\tSLT\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+            }
+            break;
+        }
+
+        case 0x3:
+        {
+            if (funct7 == 0x0)
+            {
+                cout << "\tSLTU\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+            }
+            break;
+        }
+        default:
+            cout << "\tUnkown R Instruction \n";
+        }
+    }
+    else if (opcode == 0x3B)
+    {
+        // R instructions
+        cout << "\tUnkown R Instruction \n";
+    }
+    else if (opcode == 0x13)
+    {
+        // I instructions
+        switch (funct3)
+        {
+        case 0:
+        {
+            cout << "\tADDI\tx" << dec << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            break;
+        }
+        case 0x1:
+        {
+            cout << "\tSLLI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            break;
+        }
+        case 0x2:
+        {
+            cout << "\tSLTI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            break;
+        }
+        case 0x3:
+        {
+            cout << "\tSLTIU\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            break;
+        }
+
+        case 0x4:
+        {
+            cout << "\tXORI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            break;
+        }
+        case 0x5:
+        {
+            if (funct7 == 0x00)
+            {
+                cout << "\tSRLI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            }
+            else if (funct7 == 0x20)
+            {
+                cout << "\tSRAI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            }
+            break;
+        }
+
+        case 0x6:
+        {
+            cout << "\tORI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            break;
+        }
+
+        case 0x7:
+        {
+            cout << "\tANDI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            break;
+        }
+
+        default:
+            cout << "\tUnkown I Instruction \n";
+        }
+    }
+    else if (opcode == 0x03)
+    {
+        int32_t sign_extended_value;
+        signed int temp1;
+        signed int temp2;
+        unsigned int temp3;
+        switch (funct3)
+        {
+        case 0x0:
+
+        {
+            cout << "\tlb\tx" << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
+        }
+
+        case 0x1:
+
+        {
+            cout << "\tlh\tx" << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
+            break;
+        }
+        case 0x2:
+        {
+            if (isCompressed)
+                cout << "\tC.LW\tx" << dec << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
+            else
+                cout << "\tLW\tx" << dec << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
+
+            break;
+        }
+        case 0x4:
+        {
+            cout << "\tlbu\tx" << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
+            break;
+        }
+        case 0x5:
+        {
+            cout << "\tlhu\tx" << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
+            break;
+        }
+        }
+    }
+    else if (opcode == 0x73)
+    {
+        cout << "\tECALL\n";
+    }
+    else if (opcode == 0x0F)
+    {
+        cout << "\tUnkown I Instruction \n";
+    }
+    else if (opcode == 0x1B)
+    {
+        // I instructions
+        cout << "\tUnkown I Instruction \n";
+    }
+    else if (opcode == 0x23)
+    {
+        S_imm = 0;
+        // S instructions
+        switch (funct3)
+        {
+        case 0x0:
+        {
+            cout << "\tSB\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
+            break;
+        }
+
+        case 0x1:
+        {
+            cout << "\tSH\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
+            break;
+        }
+
+        case 0x2:
+
+        {
+            cout << "\tSW\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
+            break;
+        }
+
+        default:
+            cout << "\tUnknown S Instruction\n";
+        }
+    }
+    else if (opcode == 0x63)
+    {
+        // SB instructions
+        switch (funct3)
+        {
+        case 0x0:
+        {
+            cout << "\tBEQ\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
+            break;
+        }
+
+        case 0x1:
+        {
+            cout << "\tBNE\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
+            break;
+        }
+        case 0x4:
+        {
+            cout << "\tBLT\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << B_imm << "\n";
+            break;
+        }
+        case 0x5:
+        {
+            cout << "\tBGE\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << B_imm << "\n";
+            break;
+        }
+        case 0x6:
+        {
+            cout << "\tBLTU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
+            break;
+        }
+        case 0x7:
+        {
+            cout << "\tBGEU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
+            break;
+        }
+        default:
+            cout << "\tUnknown B Instruction\n";
+        }
+    }
+    else if (opcode == 0x37) // LUI
+    {
+        cout << "\tLUI\tx" << rd << ", " << hex << "0x" << (int)U_imm << "\n";
+    }
+    else if (opcode == 0x17) // AUIPC
+    {
+        cout << "\tAUIPC\tx" << rd << ", " << hex << "0x" << (int)U_imm << "\n";
+    }
+    else if (opcode == 0x6F) // JAL
+    {
+        cout << "\tJAL\tx" << rd << ", " << hex << "L" << count << "\n";
+    }
+    else if (opcode == 0x67) // JALR
+    {
+        switch (funct3)
+        {
+        case 0x0:
+            if (isCompressed == 0)
+            {
+                cout << "\tJALR\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            }
+            else if (isCompressed == 1)
+            {
+                if (rd == 0b00000)
+                {
+                    cout << "\tC.JR\tx" << rs1 << "\n";
+                }
+                else if (rd == 0b00001)
+                {
+                    cout << "\tC.JALR\tx" << rs1 << "\n";
+                }
+            }
+            break;
+        default:
+            cout << "\tUnkown I Instruction \n";
+        }
+    }
+    else
+    {
+
+        cout << "\tUnkown Instruction Type \n";
+    }
+}
+
+void executeInstruction(unsigned int instWord)
 {
     unsigned int rd, rs1, rs2, funct3, funct7, opcode;
     signed int I_imm, S_imm, B_imm, U_imm, J_imm; // debugging: do we need SB_imm or UJ_imm ?
@@ -146,11 +889,11 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
     }
     // Immediate value for U instructions
 
-    if (isCompressed == 0)
-    {
+    // if (isCompressed == 0)
+    // {
 
-        printPrefix(instPC, instWord);
-    }
+    //     printPrefix(instPC, instWord);
+    // }
 
     if (opcode == 0x33)
     { // R Instructions
@@ -161,35 +904,35 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         {
             if (funct7 == 0x0)
             {
-                if (isCompressed == 0)
-                {
-                    cout << "\tADD\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
-                }
-                else if (isCompressed == 1)
-                {
+                // if (isCompressed == 0)
+                // {
+                //     // cout << "\tADD\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                // }
+                // else if (isCompressed == 1)
+                // {
 
-                    if (rs1 == 0b00000)
-                    {
-                        cout << "\tC.MV\tx" << dec << rd << ", x" << rs2 << "\n";
-                    }
-                    else
-                    {
-                        cout << "\tC.ADD\tx" << dec << rd << ", x" << rs2 << "\n";
-                    }
-                }
+                //     // if (rs1 == 0b00000)
+                //     // {
+                //     //     cout << "\tC.MV\tx" << dec << rd << ", x" << rs2 << "\n";
+                //     // }
+                //     // else
+                //     // {
+                //     //     cout << "\tC.ADD\tx" << dec << rd << ", x" << rs2 << "\n";
+                //     // }
+                // }
 
                 reg[rd] = reg[rs1] + reg[rs2];
             }
             else if (funct7 == 0x20)
             {
-                if (isCompressed == 0)
-                {
-                    cout << "\tSUB\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
-                }
-                else if (isCompressed == 1)
-                {
-                    cout << "\tC.SUB\tx" << dec << rd << ", x" << rs2 << "\n";
-                }
+                // if (isCompressed == 0)
+                // {
+                //     cout << "\tSUB\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                // }
+                // else if (isCompressed == 1)
+                // {
+                //     cout << "\tC.SUB\tx" << dec << rd << ", x" << rs2 << "\n";
+                // }
                 reg[rd] = reg[rs1] - reg[rs2];
             }
             break;
@@ -199,15 +942,15 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         {
             if (funct7 == 0x00)
             {
-                if (isCompressed == 0)
-                {
-                    cout << "\tXOR\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
-                }
+                // if (isCompressed == 0)
+                // {
+                //     cout << "\tXOR\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                // }
 
-                else if (isCompressed == 1)
-                {
-                    cout << "\tC.XOR\tx" << dec << rd << ", x" << rs2 << "\n";
-                }
+                // else if (isCompressed == 1)
+                // {
+                //     cout << "\tC.XOR\tx" << dec << rd << ", x" << rs2 << "\n";
+                // }
                 reg[rd] = reg[rs1] ^ reg[rs2];
             }
             break;
@@ -217,14 +960,14 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         {
             if (funct7 == 0x00)
             {
-                if (isCompressed == 0)
-                {
-                    cout << "\tOR\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
-                }
-                if (isCompressed == 1)
-                {
-                    cout << "\tC.OR\tx" << dec << rd << ", x" << rs2 << "\n";
-                }
+                // if (isCompressed == 0)
+                // {
+                //     // cout << "\tOR\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                // }
+                // if (isCompressed == 1)
+                // {
+                //     // cout << "\tC.OR\tx" << dec << rd << ", x" << rs2 << "\n";
+                // }
                 reg[rd] = reg[rs1] | reg[rs2];
             }
             break;
@@ -234,14 +977,14 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         {
             if (funct7 == 0x00)
             {
-                if (isCompressed == 0)
-                {
-                    cout << "\tAND\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
-                }
-                else if (isCompressed == 1)
-                {
-                    cout << "\tC.AND\tx" << dec << rd << ", x" << rs2 << "\n";
-                }
+                // if (isCompressed == 0)
+                // {
+                //     // cout << "\tAND\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                // }
+                // else if (isCompressed == 1)
+                // {
+                //     // cout << "\tC.AND\tx" << dec << rd << ", x" << rs2 << "\n";
+                // }
                 reg[rd] = reg[rs1] & reg[rs2];
             }
             break;
@@ -251,7 +994,7 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         {
             if (funct7 == 0x00)
             {
-                cout << "\tSLL\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                // cout << "\tSLL\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 reg[rd] = rs1 << rs2; // debugging: should rs2 be cast to signed?
                 // debugging: in RARS, if rs2 is negative, rs1 is set to 0
             }
@@ -261,13 +1004,13 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         {
             if (funct7 == 0x00)
             {
-                cout << "\tSRL\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                // cout << "\tSRL\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 reg[rd] = rs1 >> rs2; // debugging: should rs2 be cast to signed?
                 // debugging: in RARS, if rs2 is negative, rs1 is set to 0
             }
             else if (funct7 == 0x20)
             {
-                cout << "\tSRA\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                // cout << "\tSRA\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 unsigned int temp = rs2;
 
                 bool isNeg = reg[rs1] & 0x80000000;
@@ -289,7 +1032,7 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         {
             if (funct7 == 0x0)
             {
-                cout << "\tSLT\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                // cout << "\tSLT\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 // debugging: should rs1 or rs2 be cast to signed?
                 if (reg[rs1] < reg[rs2])
                     reg[rd] = 1;
@@ -304,7 +1047,7 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         {
             if (funct7 == 0x0)
             {
-                cout << "\tSLTU\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
+                // cout << "\tSLTU\tx" << dec << rd << ", x" << rs1 << ", x" << rs2 << "\n";
                 if (reg[rs1] < reg[rs2])
                     reg[rd] = 1;
                 else
@@ -312,18 +1055,9 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
             }
             break;
         }
-
-        default:
-            cout << "\tUnkown R Instruction \n";
         }
     }
-    else if (opcode == 0x3B)
-    {
-        // R instructions
-        cout << "\tUnkown R Instruction \n";
-        // debugging: implementation required
-        // debugging: check if opcode == 0x3B is unsupported (addw, subw, others)
-    }
+
     else if (opcode == 0x13)
     {
         // I instructions
@@ -331,21 +1065,29 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         {
         case 0:
         {
-            cout << "\tADDI\tx" << dec << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
-            reg[rd] = reg[rs1] + (int)I_imm;
+            // cout << "\tADDI\tx" << dec << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
             // debugging: check the type cast (int)I_imm, and check for negative immediates
+            if (rd == 2 && rs1 == 2)
+            {
+                // reg[rd] = reg[rs1] + (int)I_imm / 4;
+                reg[2] += (int)I_imm / 4;
+            }
+            else
+            {
+                reg[rd] = reg[rs1] + (int)I_imm;
+            }
             break;
         }
         case 0x1:
         {
-            cout << "\tSLLI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            // cout << "\tSLLI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
             reg[rd] = rs1 << (int)I_imm;
 
             break;
         }
         case 0x2:
         {
-            cout << "\tSLTI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            // cout << "\tSLTI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
             if (reg[rs1] < (int)I_imm)
                 reg[rd] = 0b1;
             else
@@ -355,7 +1097,7 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         }
         case 0x3:
         {
-            cout << "\tSLTIU\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            // cout << "\tSLTIU\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
             if (reg[rs1] < (int)I_imm)
                 reg[rd] = 0b1;
             else
@@ -366,7 +1108,7 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
 
         case 0x4:
         {
-            cout << "\tXORI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            // cout << "\tXORI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
             reg[rd] = reg[rs1] ^ (int)I_imm;
             break;
         }
@@ -374,12 +1116,12 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         {
             if (funct7 == 0x00)
             {
-                cout << "\tSRLI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+                // cout << "\tSRLI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
                 reg[rd] = rs1 >> (int)I_imm;
             }
             else if (funct7 == 0x20)
             {
-                cout << "\tSRAI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+                // cout << "\tSRAI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
                 if ((int)I_imm < 0 && reg[rs1] >= 0)
                 {
                     reg[rd] = 0b0;
@@ -406,20 +1148,17 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
 
         case 0x6:
         {
-            cout << "\tORI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            // cout << "\tORI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
             reg[rd] = reg[rs1] | (int)I_imm;
             break;
         }
 
         case 0x7:
         {
-            cout << "\tANDI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
+            // cout << "\tANDI\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
             reg[rd] = reg[rs1] & (int)I_imm;
             break;
         }
-
-        default:
-            cout << "\tUnkown I Instruction \n";
         }
     }
     else if (opcode == 0x03)
@@ -433,7 +1172,7 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         case 0x0:
 
         {
-            cout << "\tlb\tx" << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
+            // cout << "\tlb\tx" << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
             temp1 = memory[reg[rs1] + I_imm];
 
             // sign extension
@@ -450,7 +1189,7 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         case 0x1:
 
         {
-            cout << "\tlh\tx" << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
+            // cout << "\tlh\tx" << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
             temp2 = memory[reg[rs1] + I_imm];
 
             // sign extension
@@ -465,13 +1204,13 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         }
         case 0x2:
         {
-            cout << "\tlw\tx" << dec << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
+            // cout << "\tlw\tx" << dec << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
             reg[rd] = memory[reg[rs1] + I_imm];
             break;
         }
         case 0x4:
         {
-            cout << "\tlbu\tx" << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
+            // cout << "\tlbu\tx" << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
             temp3 = memory[reg[rs1] + I_imm];
             int unsigned_extended_value = temp3 & 0x000000FF;
             reg[rd] = unsigned_extended_value;
@@ -479,7 +1218,7 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         }
         case 0x5:
         {
-            cout << "\tlhu\tx" << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
+            // cout << "\tlhu\tx" << rd << ", " << dec << (int)I_imm << "(x" << rs1 << ")\n";
             unsigned int temp4 = memory[reg[rs1] + I_imm];
             int unsigned_extended_value = temp4 & 0x0000FFFF;
             reg[rd] = unsigned_extended_value;
@@ -489,36 +1228,23 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
     }
     else if (opcode == 0x73)
     {
-        cout << "\tECALL\n";
-        // if (reg[17] == 1) // if a7==1 print a0 integer
-        // {
-        //     cout << (int)reg[10] << endl;
-        // }
-        // else if (reg[17] == 4)
-        // { // if a7==4 print a0 string
-        //     cout << memory[reg[10]] << endl;
-        // }
-        // else if (reg[17] == 10)
-        // {
-        //     cout << endl
-        //          << dec << (int)reg[17];
-        //     exit(0);
-        // }
+        // cout << "\tECALL\n";
+        if (reg[17] == 1) // if a7==1 print a0 integer
+        {
+            cout << (int)reg[10] << endl;
+        }
+        else if (reg[17] == 4)
+        { // if a7==4 print a0 string
+            cout << memory[reg[10]] << endl;
+        }
+        else if (reg[17] == 10)
+        {
+            cout << endl
+                 << dec << (int)reg[17];
+            exit(0);
+        }
     }
-    else if (opcode == 0x0F)
-    {
-        // I instructions
-        cout << "\tUnkown I Instruction \n";
-        // debugging: implementation required
-        // debugging: check if opcode == 0x0F is unsupported (fence, or other)
-    }
-    else if (opcode == 0x1B)
-    {
-        // I instructions
-        cout << "\tUnkown I Instruction \n";
-        // debugging: implementation required
-        // debugging: check if opcode == 0x1B is unsupported (addiw, slliw, or others)
-    }
+
     else if (opcode == 0x23)
     {
         S_imm = 0;
@@ -527,7 +1253,7 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         {
         case 0x0:
         {
-            cout << "\tSB\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
+            // cout << "\tSB\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
 
             unsigned int temp3 = memory[reg[rs1] + S_imm];
             reg[rs2] = temp3 & 0x000000FF;
@@ -537,7 +1263,7 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
 
         case 0x1:
         {
-            cout << "\tSH\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
+            // cout << "\tSH\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
 
             memory[reg[rs1] + S_imm] = reg[rs2] & 0x0000FFFF;
 
@@ -547,15 +1273,12 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         case 0x2:
 
         {
-            cout << "\tSW\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
+            // cout << "\tSW\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
 
             memory[reg[rs1] + S_imm] = reg[rs2];
 
             break;
         }
-
-        default:
-            cout << "\tUnknown S Instruction\n";
         }
     }
     else if (opcode == 0x63)
@@ -566,62 +1289,59 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         case 0x0:
         {
 
-            cout << "\tBEQ\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
-
-            addLabel(B_imm, count, instWord);
-            count++;
+            // cout << "\tBEQ\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
+            pc += ((reg[rs1] == reg[rs2]) ? B_imm : 4);
 
             break;
         }
 
         case 0x1:
         {
-            cout << "\tBNE\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
-            addLabel(B_imm, count, instWord);
-            count++;
+            // cout << "\tBNE\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
+            pc += (((int)reg[rs1] != (int)reg[rs2]) ? B_imm : 4);
+
             break;
         }
         case 0x4:
         {
-            cout << "\tBLT\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << B_imm << "\n";
-            addLabel(B_imm, count, instWord);
-            count++;
+            // cout << "\tBLT\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << B_imm << "\n";
+            pc += (((int)reg[rs1] < (int)reg[rs2]) ? B_imm : 4);
+
             break;
         }
         case 0x5:
         {
-            cout << "\tBGE\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << B_imm << "\n";
-            addLabel(B_imm, count, instWord);
-            count++;
+            // cout << "\tBGE\tx" << dec << (int)rs1 << ", x" << (int)rs2 << ", " << hex << "0x" << B_imm << "\n";
+            pc += (((int)reg[rs1] >= (int)reg[rs2]) ? B_imm : 4);
+
             break;
         }
         case 0x6:
         {
-            cout << "\tBLTU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
-            addLabel(B_imm, count, instWord);
-            count++;
+            // cout << "\tBLTU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
+            pc += (((unsigned)reg[rs1] < (unsigned)reg[rs2]) ? B_imm : 4);
+
             break;
         }
         case 0x7:
         {
-            cout << "\tBGEU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
-            addLabel(B_imm, count, instWord);
-            count++;
+            // cout << "\tBGEU\tx" << dec << rs1 << ", x" << rs2 << ", " << hex << "0x" << B_imm << "\n";
+            pc += (((unsigned)reg[rs1] >= (unsigned)reg[rs2]) ? B_imm : 4);
+
             break;
         }
-        default:
-            cout << "\tUnknown B Instruction\n";
         }
     }
+
     else if (opcode == 0x37) // LUI
     {
         reg[rd] = reg[rd] + (int)U_imm << 12;
-        cout << "\tLUI\tx" << rd << ", " << hex << "0x" << (int)U_imm << "\n";
+        // cout << "\tLUI\tx" << rd << ", " << hex << "0x" << (int)U_imm << "\n";
     }
     else if (opcode == 0x17) // AUIPC
     {
         reg[rd] = (int)pc + (int)U_imm;
-        cout << "\tAUIPC\tx" << rd << ", " << hex << "0x" << (int)U_imm << "\n";
+        // cout << "\tAUIPC\tx" << rd << ", " << hex << "0x" << (int)U_imm << "\n";
     }
     else if (opcode == 0x6F) // JAL
     {
@@ -643,14 +1363,25 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
             J_imm = J_imm | 0x0;
         }
 
-        cout << "\tJAL\tx" << rd << ", " << hex << "L" << count << "\n";
+        J_imm = J_imm << 1;
 
-        // addLabel(J_imm, count, instWord); // study
-        // count++;
+        //  cout << "J_imm is now " << bitset<21>(J_imm) << endl;
+        //  cout << "rd is now " << rd << endl;
+        // 37.JAL
 
-        // cout << "\tJAL\tx" << rd << ", " << hex << "L" << count << "\n";
-        // addLabel(J_imm, count, instWord);
-        // count++;
+        reg[rd] = instPC + 4;
+        instPC = instPC + J_imm;
+        pc = instPC;
+
+        //  cout << "reg[rd] is now " << reg[rd] << endl;
+        //  cout << "instPC is now " << hex<<instPC << endl;
+
+        // addLabel(J_imm, county, instWord); // study
+        // county++;
+
+        // cout << "\tJAL\tx" << rd << ", " << hex << "L" << county << "\n";
+        // addLabel(J_imm, county, instWord);
+        //  county++;
     }
     else if (opcode == 0x67) // JALR
     {
@@ -659,140 +1390,17 @@ void translateInstruction(unsigned int instWord, bool isCompressed)
         case 0x0:
             // reg[rd] = (int)pc + 4;
             // pc = reg[rs1] + (int)I_imm;
-            if (isCompressed == 0)
-            {
-
-                cout << "\tJALR\tx" << rd << ", x" << rs1 << ", " << hex << "0x" << (int)I_imm << "\n";
-            }
-            else if (isCompressed == 1)
-            {
-                if (rd == 0b00000)
-                {
-                    cout << "\tC.JR\tx" << rs1 << "\n";
-                }
-                else if (rd == 0b00001)
-                {
-                    cout << "\tC.JALR\tx" << rs1 << "\n";
-                }
-            } // pc = reg[rd];
-            break;
-        default:
-            cout << "\tUnkown I Instruction \n";
-        }
-    }
-    else
-    {
-        cout << "\tUnkown Instruction Type \n";
-    }
-}
-
-void compInstDecExec(unsigned int instWord)
-{
-    unsigned int rd, rs1_dash, rs2_dash, rs2, funct4, funct3, opcode;
-
-    unsigned int instPC = pc - 2;
-
-    opcode = instWord & 0x00000003;
-    rs2 = (instWord >> 2) & 0x0000001F;
-    rd = (instWord >> 7) & 0x0000001F;
-    funct4 = (instWord >> 12) & 0x0000000F;
-    funct3 = (instWord >> 13) & 0x00000007;
-    rs1_dash = (instWord >> 7) & 0x00000007;
-    rs2_dash = (instWord >> 2) & 0x00000007;
-
-    //   cout << "func4 is " << bitset<4>(funct4) << endl;
-    //   cout << "rd is " << bitset<5>(rd) << endl;
-    //   cout << "rs2 is " << bitset<5>(rs2) << endl;
-    //   cout << "opcode is " << bitset<2>(opcode) << endl;
-
-    printPrefix(instPC, instWord);
-
-    unsigned int instWord_Decompressed;
-
-    if (opcode == 0x2)
-    {
-        // CR Format
-        switch (funct4)
-        {
-        case 0x9:
-        {
-            if (rd != 0 & rs2 != 0)
-            {
-                // C.ADD --------> ADD
-                instWord_Decompressed = 0b0000000;
-                instWord_Decompressed = instWord_Decompressed << 5;
-                instWord_Decompressed = instWord_Decompressed + rs2;
-                instWord_Decompressed = instWord_Decompressed << 5;
-                instWord_Decompressed = instWord_Decompressed + rd;
-                instWord_Decompressed = instWord_Decompressed << 3;
-                instWord_Decompressed = instWord_Decompressed + 0b000;
-                instWord_Decompressed = instWord_Decompressed << 5;
-                instWord_Decompressed = instWord_Decompressed + rd;
-                instWord_Decompressed = instWord_Decompressed << 7;
-                instWord_Decompressed = instWord_Decompressed + 0b0110011;
-
-                // cout << "The Compressed Word is " << bitset<32>(instWord_Decompressed) << endl;
-                translateInstruction(instWord_Decompressed, 1);
-            }
-
-            else if (rd != 0 & rs2 == 0)
-            {
-                // C.JALR
-            }
-        }
-        }
-    }
-
-    else if (opcode == 0x1)
-    {
-
-        switch (funct3)
-        {
-
-        case 0x6:
-        {
-
-            unsigned int imm = ((instWord >> 8) & 0x800) | ((instWord >> 7) & 0x1E) | ((instWord << 4) & 0x7E0) | ((instWord << 19) & 0x1000);
-            imm = (imm << 19) >> 19;
-
-            unsigned int rs1 = (instWord >> 15) & 0x1F;
-            unsigned int rs2 = (instWord >> 20) & 0x1F;
-
-            /// cout << "BEQ x" << rs1 << ", x" << rs2 << ", " << dec << imm << "\n";
-
-            unsigned int opcode_beq = 0x63;
-            unsigned int funct3_beq = 0x0;
-            unsigned int instWord_Decompressed = 0;
-            instWord_Decompressed |= (imm << 20);
-            instWord_Decompressed |= (rs2 << 20);
-            instWord_Decompressed |= (rs1 << 15);
-            instWord_Decompressed |= (funct3_beq << 12);
-            instWord_Decompressed |= (imm << 7);
-            instWord_Decompressed |= (opcode_beq << 0);
-
-            translateInstruction(instWord_Decompressed, 1);
 
             break;
         }
-
-        case 0x7:
-        {
-        }
-        }
     }
-}
-
-void executeInstruction(unsigned int instWord)
-{
-    // execute
 }
 
 int main(int argc, char *argv[])
 {
     unsigned int instWord = 0;
     unsigned int instHalf = 0;
-    int caseComp = 0;
-    int caseNComp = 0;
+    reg[2] = (unsigned int)(sizeof(stack) / 4); // sp at last index of stack
     ifstream inFile;
     ifstream dataFile;
     ofstream outFile;
@@ -837,8 +1445,7 @@ int main(int argc, char *argv[])
 
         while (true)
         {
-            // instHalf = (unsigned char)memory[pc] |
-            //            (((unsigned char)memory[pc + 1]) << 8);
+
             instWord = (unsigned char)memory[pc] |
                        (((unsigned char)memory[pc + 1]) << 8) |
                        (((unsigned char)memory[pc + 2]) << 16) |
@@ -847,8 +1454,8 @@ int main(int argc, char *argv[])
             // debugging: remove the line below when debugging is finished
             // cout << bitset<32>(instWord) << endl;
 
-            // if (instWord == 0) // debugging: configure the best way to detect the end of the program, and the while(true) loop
-            //     break;
+            if (instWord == 0) // debugging: configure the best way to detect the end of the program, and the while(true) loop
+                break;
 
             pc += 4;
             if ((instWord & 0x00000003) != 0x3) // if 16-bit instruction
@@ -856,7 +1463,8 @@ int main(int argc, char *argv[])
                 pc -= 4;
                 instWord = (unsigned char)memory[pc] | (((unsigned char)memory[pc + 1]) << 8);
                 pc += 2;
-                decompress(instWord);
+                instWord = decompress(instWord);
+                translateInstruction(instWord, 1);
             }
             else
             {
@@ -883,16 +1491,18 @@ int main(int argc, char *argv[])
             // debugging: remove the line below when debugging is finished
             // cout << bitset<32>(instWord) << endl;
 
-            // if (instWord == 0) // debugging: configure the best way to detect the end of the program, and the while(true) loop
-            //     break;
+            if (instWord == 0) // debugging: configure the best way to detect the end of the program, and the while(true) loop
+                break;
 
             pc += 4;
+
             if ((instWord & 0x00000003) != 0x3) // if 16-bit instruction
             {
                 pc -= 4;
                 instWord = (unsigned char)memory[pc] | (((unsigned char)memory[pc + 1]) << 8);
                 pc += 2;
-                decompress(instWord);
+                instWord = decompress(instWord);
+                executeInstruction(instWord);
             }
             else
             {
