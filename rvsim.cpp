@@ -41,7 +41,7 @@ void emitError(const char *s)
     exit(0);
 }
 
-void addLabel(unsigned int imm, int &count, unsigned int instWord) // here we add labels of jumps to construct a symbol table
+void addLabel(unsigned int imm, int &count, unsigned int instWord)
 {
 }
 
@@ -789,7 +789,6 @@ void executeInstruction(unsigned int instWord)
 
 int main(int argc, char *argv[])
 {
-    int counter = 0;
     unsigned int instWord = 0;
     unsigned int instHalf = 0;
     int caseComp = 0;
@@ -799,35 +798,32 @@ int main(int argc, char *argv[])
     ofstream outFile;
     count = 1;
 
-    // if (argc < 1)
-    //     emitError("use: rvcdiss <machine_code_file_name>\n");
+    if (argc < 1)
+        emitError("use: rvcdiss <machine_code_file_name>\n");
 
-    // inFile.open(argv[1], ios::in | ios::binary | ios::ate);
+    inFile.open(argv[1], ios::in | ios::binary | ios::ate);
 
-    // if (argc == 3)
-    //     dataFile.open(argv[2], ios::in | ios::binary | ios::ate); // data section
+    if (argc == 3)
+        dataFile.open(argv[2], ios::in | ios::binary | ios::ate); // data section
 
-    // if (dataFile.is_open())
-    // {
-    //     int fsize = inFile.tellg();
-    //     inFile.seekg(0, inFile.beg);
-    //     if (!inFile.read((char *)memory, fsize))
-    //         emitError("Cannot read from input file\n");
-    // }
+    if (dataFile.is_open())
+    {
+        int fsize = inFile.tellg();
+        inFile.seekg(0, inFile.beg);
+        if (!inFile.read((char *)memory, fsize)) // data section
+            emitError("Cannot read from text file\n");
+    }
 
     // debugging: remove the line below and uncomment the block above when debugging is finished
-    inFile.open("t2.bin", ios::in | ios::binary | ios::ate);
-
-    /*
-        debugging: remove this comment block when debugging is finished
-
-        instructions currently in machineCode.bin:
-        add x8, x8, x9
-        srl x8, x8, x9
-
-        To modify machineCode.bin, use a hex editor or bin editor, write in hex and in little endian.
-
-    */
+    // inFile.open("t2.bin", ios::in | ios::binary | ios::ate);
+    // dataFile.open("t2-d.bin", ios::in | ios::binary | ios::ate);
+    if (dataFile.is_open())
+    {
+        int fsize = dataFile.tellg();
+        dataFile.seekg(0, dataFile.beg);
+        if (!dataFile.read((char *)(memory + 0x00010000), fsize)) ///////////////////////////
+            emitError("Cannot read from data file\n");
+    }
 
     if (inFile.is_open())
     {
@@ -847,7 +843,6 @@ int main(int argc, char *argv[])
                        (((unsigned char)memory[pc + 1]) << 8) |
                        (((unsigned char)memory[pc + 2]) << 16) |
                        (((unsigned char)memory[pc + 3]) << 24);
-            counter++;
 
             // debugging: remove the line below when debugging is finished
             // cout << bitset<32>(instWord) << endl;
@@ -884,7 +879,6 @@ int main(int argc, char *argv[])
                        (((unsigned char)memory[pc + 1]) << 8) |
                        (((unsigned char)memory[pc + 2]) << 16) |
                        (((unsigned char)memory[pc + 3]) << 24);
-            counter++;
 
             // debugging: remove the line below when debugging is finished
             // cout << bitset<32>(instWord) << endl;
