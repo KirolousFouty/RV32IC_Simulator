@@ -1072,6 +1072,14 @@ void executeInstruction(unsigned int instWord)
                 // reg[rd] = reg[rs1] + (int)I_imm / 4;
                 reg[2] += (int)I_imm / 4;
             }
+            else if (rd == 2)
+            {
+                reg[2] = ((int)reg[rs1] + (int)I_imm) / 4;
+            }
+            else if (rs1 == 2)
+            {
+                reg[rd] = reg[2] + (int)I_imm;
+            }
             else
             {
                 reg[rd] = reg[rs1] + (int)I_imm;
@@ -1275,7 +1283,14 @@ void executeInstruction(unsigned int instWord)
         {
             // cout << "\tSW\tx" << dec << rs1 << ", " << (int)S_imm << "(x" << rs2 << ")\n";
 
-            memory[reg[rs1] + S_imm] = reg[rs2];
+            if (rs1 == 2)
+            {
+                stack[reg[2] + (S_imm / 4)] = reg[rs2];
+            }
+            else
+            {
+                memory[reg[rs1] + S_imm] = reg[rs2];
+            }
 
             break;
         }
@@ -1370,8 +1385,8 @@ void executeInstruction(unsigned int instWord)
         // 37.JAL
 
         reg[rd] = instPC + 4;
-        instPC = instPC + J_imm;
-        pc = instPC;
+        pc = instPC + J_imm;
+        // pc = instPC + J_imm - 8;
 
         //  cout << "reg[rd] is now " << reg[rd] << endl;
         //  cout << "instPC is now " << hex<<instPC << endl;
@@ -1388,8 +1403,21 @@ void executeInstruction(unsigned int instWord)
         switch (funct3)
         {
         case 0x0:
-            // reg[rd] = (int)pc + 4;
-            // pc = reg[rs1] + (int)I_imm;
+            //  reg[rd] = (int)pc + 4;
+            //  pc = reg[rs1] + (int)I_imm;
+            //
+            // 38.JALR
+
+            // pc = reg[rd];
+
+            //  cout << "I_imm is now " << bitset<21>(I_imm) << endl;
+            //  cout << "rd is now " << rd << endl;
+            reg[rd] = instPC + 4;
+            pc = reg[rs1] + I_imm;
+
+            //   cout << "reg[rd] is now " << reg[rd] << endl;
+            //   cout << "reg[rs1] is now " << reg[rs1] << endl;
+            // cout << "instPC is now " << hex << instPC << endl;*/
 
             break;
         }
@@ -1399,12 +1427,12 @@ void executeInstruction(unsigned int instWord)
 int main(int argc, char *argv[])
 {
     unsigned int instWord = 0;
-    unsigned int instHalf = 0;
     reg[2] = (unsigned int)(sizeof(stack) / 4); // sp at last index of stack
     ifstream inFile;
     ifstream dataFile;
     ofstream outFile;
     count = 1;
+    int mm = 0;
 
     if (argc < 1)
         emitError("use: rvcdiss <machine_code_file_name>\n");
@@ -1496,18 +1524,25 @@ int main(int argc, char *argv[])
 
             pc += 4;
 
-            if ((instWord & 0x00000003) != 0x3) // if 16-bit instruction
+            // if ((instWord & 0x00000003) != 0x3) // if 16-bit instruction
+            // {
+            //     pc -= 4;
+            //     instWord = (unsigned char)memory[pc] | (((unsigned char)memory[pc + 1]) << 8);
+            //     pc += 2;
+            //     instWord = decompress(instWord);
+            //     executeInstruction(instWord);
+            // }
+            // else
+            // {
+            reg[0] = 0;
+            // cout << "INfinite here" << endl;
+            // if (mm < 65536)
+            if (mm != 38)
             {
-                pc -= 4;
-                instWord = (unsigned char)memory[pc] | (((unsigned char)memory[pc + 1]) << 8);
-                pc += 2;
-                instWord = decompress(instWord);
                 executeInstruction(instWord);
-            }
-            else
-            {
-                executeInstruction(instWord);
-            }
+                mm++;
+                }
+            // }
 
             if (pc > 65536) // debugging: configure the best way to detect the end of the program, and the while(true) loop
                 break;
