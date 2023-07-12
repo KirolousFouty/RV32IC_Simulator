@@ -40,6 +40,17 @@ void printRegisterValues()
     cout << "pc = 0x" << hex << pc << endl;
 }
 
+void printMemoryValues()
+{
+    cout << "\n\n\n";
+    for (int i = 0; i < (16 + 64) * 1024; i++)
+    {
+        if (memory[i] != 0)
+            cout << "memory[" << i << "] = " << hex << (int)memory[i] << endl;
+    }
+    cout << "\n\n\n";
+}
+
 unsigned int decompress(unsigned int instWord)
 {
 
@@ -47,21 +58,21 @@ unsigned int decompress(unsigned int instWord)
     unsigned int CS_imm, CS_imm_v2, CL_imm, JAL_Imm, CI_imm;
     unsigned int instPC = pc - 2;
 
-    opcode = instWord & 0x00000003;
-    rs2 = (instWord >> 2) & 0x0000001F;
-    rd = (instWord >> 7) & 0x0000001F;
-    funct4 = (instWord >> 12) & 0x0000000F;
-    funct3 = (instWord >> 13) & 0x00000007;
-    rs1_dash = (instWord >> 7) & 0x00000007;
-    rs2_dash = (instWord >> 2) & 0x00000007;
-    rd_dash = (instWord >> 2) & 0x00000007;
+    opcode = (instWord & 0x00000003);
+    rs2 = ((instWord >> 2) & 0x0000001F);
+    rd = ((instWord >> 7) & 0x0000001F);
+    funct4 = ((instWord >> 12) & 0x0000000F);
+    funct3 = ((instWord >> 13) & 0x00000007);
+    rs1_dash = ((instWord >> 7) & 0x00000007);
+    rs2_dash = ((instWord >> 2) & 0x00000007);
+    rd_dash = ((instWord >> 2) & 0x00000007);
 
     rd_dash = rd_dash + 0b1000;
     rs1_dash = rs1_dash + 0b1000;
     rs2_dash = rs2_dash + 0b1000;
 
-    CI_imm = instWord >> 2;
-    CI_imm = CI_imm & 0x001F;
+    CI_imm = (instWord >> 2);
+    CI_imm = (CI_imm & 0x001F);
     CI_imm = CI_imm + ((instWord >> 7) & 0x0020);
 
     if (CI_imm & 0x0010)
@@ -140,7 +151,7 @@ unsigned int decompress(unsigned int instWord)
         {
         case 0x9:
         {
-            if (rd != 0 & rs2 != 0)
+            if (rd != 0 && rs2 != 0)
             {
                 // C.ADD --------> ADD
                 instWord_Decompressed = 0b0000000;
@@ -157,7 +168,7 @@ unsigned int decompress(unsigned int instWord)
 
                 return instWord_Decompressed;
             }
-            else if (rd != 0 & rs2 == 0)
+            else if (rd != 0 && rs2 == 0)
             {
                 // C.JALR -------> JALR
                 instWord_Decompressed = 0b000000000000;
@@ -177,7 +188,7 @@ unsigned int decompress(unsigned int instWord)
 
         case 0x8:
         {
-            if (rd != 0 & rs2 == 0)
+            if (rd != 0 && rs2 == 0)
             {
                 // C.JR ------> JALR
                 instWord_Decompressed = 0b000000000000;
@@ -192,7 +203,7 @@ unsigned int decompress(unsigned int instWord)
 
                 return instWord_Decompressed;
             }
-            else if (rd != 0 & rs2 != 0)
+            else if (rd != 0 && rs2 != 0)
             {
                 // C.MV ------> ADD
                 instWord_Decompressed = 0b0000000;
@@ -218,7 +229,7 @@ unsigned int decompress(unsigned int instWord)
         case 0x0:
         {
             int CI_imm = instWord >> 2; // C.slli
-            CI_imm = CI_imm & 0x001F;
+            CI_imm = (CI_imm & 0x001F);
             CI_imm = CI_imm + ((instWord >> 7) & 0x0020);
 
             if (CI_imm >> 5)
@@ -233,7 +244,7 @@ unsigned int decompress(unsigned int instWord)
             opcode = 0x13;
             funct3 = 0x1;
             rd = instWord >> 7;
-            rd = rd & 0x001F;
+            rd = (rd & 0x001F);
             instWord_Decompressed = CI_imm << 20;
             instWord_Decompressed = instWord_Decompressed + (rd << 15);
             instWord_Decompressed = instWord_Decompressed + (funct3 << 12);
@@ -245,8 +256,8 @@ unsigned int decompress(unsigned int instWord)
 
         case 0x2: // C.LWSP
         {
-            signed int CILW_imm = instWord >> 2;
-            CILW_imm = CILW_imm & 0x0003;                      // 00076
+            unsigned int CILW_imm = instWord >> 2;
+            CILW_imm = (CILW_imm & 0x0003);                    // 00076
             CILW_imm = CILW_imm << 1;                          // 00760
             CILW_imm = CILW_imm + ((instWord >> 11) & 0x0001); // 00765
             CILW_imm = CILW_imm << 2;                          // 87600
@@ -268,7 +279,7 @@ unsigned int decompress(unsigned int instWord)
 
                 return instWord_Decompressed;
             }
-            cout << "\nError?\n";
+            cout << "\nError?\n"; // debugging
             return instWord_Decompressed;
             break;
         }
@@ -295,9 +306,9 @@ unsigned int decompress(unsigned int instWord)
             else
                 CSS_imm &= 0x000000FF;
 
-            funct3 = (instWord >> 13) & 0b111;
+            funct3 = ((instWord >> 13) & 0b111);
 
-            instWord_Decompressed = opcode & 0b1111111;
+            instWord_Decompressed = (opcode & 0b1111111);
             instWord_Decompressed |= ((CSS_imm & 0b11111) << 7);
             instWord_Decompressed |= ((0b010) << 12);
             instWord_Decompressed |= ((0b010) << 15);
@@ -319,7 +330,7 @@ unsigned int decompress(unsigned int instWord)
         case 0x0: // addi4spn
         {
             unsigned int CIW_Imm = 0;
-            CIW_Imm = (instWord >> 7) & 0b0000000000000111;
+            CIW_Imm = ((instWord >> 7) & 0b0000000000000111);
 
             CIW_Imm = CIW_Imm << 2;
             CIW_Imm = CIW_Imm + ((instWord >> 11) & 0b0000000000000011);
@@ -352,7 +363,7 @@ unsigned int decompress(unsigned int instWord)
         case 0x6:
         {
             // C.SW
-            MSF = (instWord >> 5) & 0x00000001;
+            MSF = ((instWord >> 5) & 0x00000001);
 
             if (MSF == 1)
             {
@@ -383,11 +394,10 @@ unsigned int decompress(unsigned int instWord)
         case 0x2:
         {
             // C.LW
-            MSF = (instWord >> 5) & 0x00000001;
+            MSF = ((instWord >> 5) & 0x00000001);
 
             if (MSF == 1)
             {
-
                 instWord_Decompressed = 0b1111111;
             }
 
@@ -437,7 +447,7 @@ unsigned int decompress(unsigned int instWord)
                 I_rd &= 0x001F;
 
                 int CI_imm = instWord >> 2;
-                CI_imm = CI_imm & 0x001F;
+                CI_imm = (CI_imm & 0x001F);
                 CI_imm = CI_imm + ((instWord >> 7) & 0x0020);
                 if (CI_imm >> 5)
                 {
@@ -452,7 +462,7 @@ unsigned int decompress(unsigned int instWord)
                 opcode = 0x13;
                 funct3 = 0x0;
                 rd = instWord >> 7;
-                rd = rd & 0x001F;
+                rd = (rd & 0x001F);
                 instWord_Decompressed = CI_imm << 20;
                 instWord_Decompressed = instWord_Decompressed + (rd << 15);
                 instWord_Decompressed = instWord_Decompressed + (funct3 << 12);
@@ -545,11 +555,11 @@ unsigned int decompress(unsigned int instWord)
             {
                 opcode = 0x13;
                 funct3 = 0x5;
-                rd = (instWord >> 7) & 0b111;
+                rd = ((instWord >> 7) & 0b111);
                 rd += 8;
-                CS_imm_v2 = (instWord >> 2) & 0b1111;
+                CS_imm_v2 = ((instWord >> 2) & 0b1111);
 
-                instWord_Decompressed = CS_imm_v2 << 20;
+                instWord_Decompressed = (CS_imm_v2 << 20);
                 instWord_Decompressed |= (rd << 15);
                 instWord_Decompressed |= (funct3 << 12);
                 instWord_Decompressed |= (rd << 7);
@@ -560,27 +570,27 @@ unsigned int decompress(unsigned int instWord)
             {
                 // C.ANDI
                 CS_imm_v2 = ((instWord >> 12) & 0b1) << 5;
-                CS_imm_v2 |= (instWord >> 2) & 0b11111;
+                CS_imm_v2 |= ((instWord >> 2) & 0b11111);
 
                 instWord_Decompressed = 0b0000000;
-                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = (instWord_Decompressed << 5);
                 instWord_Decompressed = instWord_Decompressed + CS_imm_v2;
-                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = (instWord_Decompressed << 5);
                 instWord_Decompressed = instWord_Decompressed + rs1_dash;
-                instWord_Decompressed = instWord_Decompressed << 3;
+                instWord_Decompressed = (instWord_Decompressed << 3);
                 instWord_Decompressed = instWord_Decompressed + 0b111;
-                instWord_Decompressed = instWord_Decompressed << 5;
+                instWord_Decompressed = (instWord_Decompressed << 5);
                 instWord_Decompressed = instWord_Decompressed + rs1_dash;
-                instWord_Decompressed = instWord_Decompressed << 7;
+                instWord_Decompressed = (instWord_Decompressed << 7);
                 instWord_Decompressed = instWord_Decompressed + 0b0010011;
                 return instWord_Decompressed;
             }
-            else if (rd != 0) // csrai
+            else if (rd != 0) // C.SRAI
                 instWord_Decompressed = 0x0;
 
             opcode = 0x13;
             funct3 = 0x5;
-            rd = (instWord >> 7) & 0x001F;
+            rd = ((instWord >> 7) & 0x001F);
             instWord_Decompressed = CI_imm << 20;
             instWord_Decompressed = instWord_Decompressed + (rd << 15);
             instWord_Decompressed = instWord_Decompressed + (funct3 << 12);
@@ -632,7 +642,7 @@ unsigned int decompress(unsigned int instWord)
             I_rd &= 0x001F;
 
             int CI_imm = instWord >> 2;
-            CI_imm = CI_imm & 0x001F;
+            CI_imm = (CI_imm & 0x001F);
             CI_imm = CI_imm + ((instWord >> 7) & 0x0020);
             if (CI_imm >> 5)
             {
@@ -680,11 +690,11 @@ unsigned int decompress(unsigned int instWord)
 
                 if (CI16_imm >> 9 == 1)
                 {
-                    CI16_imm = CI16_imm | 0b110000000000;
+                    CI16_imm = (CI16_imm | 0b110000000000);
                 }
                 else
                 {
-                    CI16_imm = CI16_imm | 0b000000000000;
+                    CI16_imm = (CI16_imm | 0b000000000000);
                 }
 
                 instWord_Decompressed = CI16_imm;
@@ -715,13 +725,13 @@ unsigned int decompress(unsigned int instWord)
                 if (CI_imm_lui >> 17 == 1)
                 {
 
-                    CI_imm_lui = CI_imm_lui | 0b11111111111111000000000000000000;
+                    CI_imm_lui = (CI_imm_lui | 0b11111111111111000000000000000000);
                 }
 
                 else
                 {
 
-                    CI_imm_lui = CI_imm_lui | 0b00000000000000000000000000000000;
+                    CI_imm_lui = (CI_imm_lui | 0b00000000000000000000000000000000);
                 }
 
                 instWord_Decompressed = CI_imm_lui >> 12;
@@ -825,7 +835,8 @@ void instDecExec(unsigned int instWord, bool isCompressed)
 {
 
     unsigned int rd, rs1, rs2, funct3, funct7, opcode;
-    signed int I_imm, S_imm, B_imm, U_imm, J_imm;
+    // signed int I_imm, S_imm, B_imm, U_imm, J_imm;
+    unsigned int I_imm, S_imm, B_imm, U_imm, J_imm;
     unsigned int address;
 
     unsigned int instPC;
@@ -842,11 +853,11 @@ void instDecExec(unsigned int instWord, bool isCompressed)
 
     opcode = instWord & 0x0000007F;
 
-    rd = (instWord >> 7) & 0x0000001F;
-    funct3 = (instWord >> 12) & 0x00000007;
-    rs1 = (instWord >> 15) & 0x0000001F;
-    rs2 = (instWord >> 20) & 0x0000001F;
-    funct7 = (instWord >> 25) & 0x0000007F;
+    rd = ((instWord >> 7) & 0x0000001F);
+    funct3 = ((instWord >> 12) & 0x00000007);
+    rs1 = ((instWord >> 15) & 0x0000001F);
+    rs2 = ((instWord >> 20) & 0x0000001F);
+    funct7 = ((instWord >> 25) & 0x0000007F);
 
     // reset
     I_imm = 0;
@@ -859,7 +870,7 @@ void instDecExec(unsigned int instWord, bool isCompressed)
     I_imm = ((instWord >> 20) & 0x7FF) | (((instWord >> 31) ? 0xFFFFF800 : 0x0));
 
     // Extract S-Immediate
-    S_imm = instWord >> 25;
+    S_imm = (instWord >> 25);
     S_imm <<= 5;
     S_imm |= ((instWord >> 7) & 0b11111);
 
@@ -867,21 +878,21 @@ void instDecExec(unsigned int instWord, bool isCompressed)
         S_imm |= 0xFFFFF000;
 
     // Extract B-Immediate
-    B_imm = (instWord >> 31) << 12;
-    B_imm |= (instWord & 0x80) << 4;
-    B_imm |= (instWord & 0x7E000000) >> 20;
-    B_imm |= (instWord & 0xF00) >> 7;
+    B_imm = ((instWord >> 31) << 12);
+    B_imm |= ((instWord & 0x80) << 4);
+    B_imm |= ((instWord & 0x7E000000) >> 20);
+    B_imm |= ((instWord & 0xF00) >> 7);
     if (B_imm >> 12)
         B_imm |= 0xFFFFF000;
 
     // Extract U-Immediate
-    U_imm = instWord >> 12;
-    U_imm = U_imm << 12;
+    U_imm = (instWord >> 12);
+    U_imm = (U_imm << 12);
 
     // Extract J-Immediate
-    J_imm = (instWord >> 31) << 20;
+    J_imm = ((instWord >> 31) << 20);
     J_imm |= (instWord & 0xFF000);
-    J_imm |= (instWord & 0x100000) >> 9;
+    J_imm |= ((instWord & 0x100000) >> 9);
     J_imm |= (((instWord & 0x7FE00000) >> 21) << 1);
     if (J_imm >> 20)
         J_imm |= 0xFFE00000;
@@ -934,6 +945,7 @@ void instDecExec(unsigned int instWord, bool isCompressed)
                     cout << "\tC.SUB\t" << name[rd] << ", " << name[rs2] << "\n";
                 }
 
+                // reg[rd] = reg[rs1] - reg[rs2]; // debugging: signed or unsigned?
                 reg[rd] = reg[rs1] - reg[rs2];
             }
             break;
@@ -1043,7 +1055,7 @@ void instDecExec(unsigned int instWord, bool isCompressed)
             {
                 // 9.SLT
                 cout << "\tSLT\t" << name[rd] << ", " << name[rs1] << ", " << name[rs2] << "\n";
-                if (signed(reg[rs1]) < signed(reg[rs2]))
+                if ((int)(reg[rs1]) < (int)(reg[rs2]))
                 {
                     reg[rd] = 1;
                 }
@@ -1132,7 +1144,7 @@ void instDecExec(unsigned int instWord, bool isCompressed)
                 cout << "\tADDI\t" << name[rd] << ", " << name[rs1] << ", " << dec << (int)I_imm << "\n";
             }
 
-            reg[rd] = reg[rs1] + (int)I_imm;
+            reg[rd] = (int)reg[rs1] + (int)I_imm;
 
             break;
         }
@@ -1157,7 +1169,7 @@ void instDecExec(unsigned int instWord, bool isCompressed)
         {
             // 13.SLTI
             cout << "\tSLTI\t" << name[rd] << ", " << name[rs1] << ", " << hex << "0x" << (int)I_imm << "\n";
-            if (signed(reg[rs1]) < I_imm)
+            if ((int)(reg[rs1]) < (int)I_imm)
             {
                 reg[rd] = 1;
             }
@@ -1212,6 +1224,7 @@ void instDecExec(unsigned int instWord, bool isCompressed)
                 // 17.SRAI
                 I_imm = I_imm & 0b000000011111;
                 cout << "\tSRAI\t" << name[rd] << ", " << name[rs1] << ", " << hex << "0x" << (int)I_imm << "\n";
+
                 unsigned int temp = rs2;
                 unsigned int isNeg = reg[rs1] & 0x80000000;
 
@@ -1257,9 +1270,6 @@ void instDecExec(unsigned int instWord, bool isCompressed)
 
     else if (opcode == 0x03)
     {
-        int32_t sign_extended_value;
-        int unsigned_extended_value;
-
         switch (funct3)
         {
         case 0x0:
@@ -1267,20 +1277,18 @@ void instDecExec(unsigned int instWord, bool isCompressed)
         {
             // 20.lb
             cout << "\tLB\t" << name[rd] << ", " << dec << (int)I_imm << "(" << name[rs1] << ")\n";
-            reg[rd] = memory[reg[rs1] + I_imm];
+            reg[rd] = memory[reg[rs1] + (int)I_imm];
 
             // sign extension
             if (reg[rd] & 0x00000080)
             {
-                sign_extended_value = reg[rd] | 0xFFFFFF00;
+                reg[rd] |= 0xFFFFFF00;
             }
-
             else
             {
-                sign_extended_value = reg[rd] & 0x000000FF;
+                reg[rd] &= 0x000000FF;
             }
 
-            reg[rd] = sign_extended_value;
             break;
         }
 
@@ -1289,21 +1297,26 @@ void instDecExec(unsigned int instWord, bool isCompressed)
         {
             // 21.lh
             cout << "\tLH\t" << name[rd] << ", " << dec << (int)I_imm << "(" << name[rs1] << ")\n";
-            reg[rd] = (unsigned int)memory[reg[rs1] + (int)I_imm];
-            reg[rd] |= ((unsigned int)memory[reg[rs1] + (int)I_imm + 1] << 8);
+
+            unsigned int temp;
+            unsigned int data;
+            temp = reg[rs1] + (int)I_imm;
+
+            data = memory[temp];
+            data |= (memory[temp + 1] << 8);
+
+            reg[rd] = data;
 
             // sign extension
             if (reg[rd] & 0x00008000)
             {
-                sign_extended_value = reg[rd] | 0xFFFF0000;
+                reg[rd] |= 0xFFFF0000;
             }
-
             else
             {
-                sign_extended_value = reg[rd] & 0x0000FFFF;
+                reg[rd] &= 0x0000FFFF;
             }
 
-            reg[rd] = sign_extended_value;
             break;
         }
         case 0x2:
@@ -1327,10 +1340,17 @@ void instDecExec(unsigned int instWord, bool isCompressed)
                 cout << "\tLW\t" << name[rd] << ", " << dec << (int)I_imm << "(" << name[rs1] << ")\n";
             }
 
-            reg[rd] = (unsigned int)memory[reg[rs1] + (int)I_imm];
-            reg[rd] |= ((unsigned int)memory[reg[rs1] + (int)I_imm + 1] << 8);
-            reg[rd] |= ((unsigned int)memory[reg[rs1] + (int)I_imm + 2] << 16);
-            reg[rd] |= ((unsigned int)memory[reg[rs1] + (int)I_imm + 3] << 24);
+            unsigned int data;
+            unsigned int temp;
+
+            temp = reg[rs1] + (int)I_imm;
+
+            data = memory[temp];
+            data |= (memory[temp + 1] << 8);
+            data |= (memory[temp + 2] << 16);
+            data |= (memory[temp + 3] << 24);
+
+            reg[rd] = data;
 
             break;
         }
@@ -1339,18 +1359,24 @@ void instDecExec(unsigned int instWord, bool isCompressed)
             // 23.lbu
             cout << "\tLBU\t" << name[rd] << ", " << dec << (int)I_imm << "(" << name[rs1] << ")\n";
             reg[rd] = memory[reg[rs1] + (int)I_imm];
-            unsigned_extended_value = reg[rd] & 0x000000FF;
-            reg[rd] = unsigned_extended_value;
+            reg[rd] &= 0x000000FF;
             break;
         }
         case 0x5:
         {
             // 24.lhu
             cout << "\tLHU\t" << name[rd] << ", " << dec << (int)I_imm << "(" << name[rs1] << ")\n";
-            reg[rd] = (unsigned int)memory[reg[rs1] + (int)I_imm];
-            reg[rd] |= ((unsigned int)memory[reg[rs1] + (int)I_imm + 1] << 8);
-            unsigned_extended_value = reg[rd] & 0x0000FFFF;
-            reg[rd] = unsigned_extended_value;
+
+            unsigned int data;
+            unsigned int temp;
+            temp = reg[rs1] + (int)I_imm;
+
+            data = memory[temp];
+            data |= (memory[temp + 1] << 8);
+            data &= 0x0000FFFF;
+
+            reg[rd] = data;
+
             break;
         }
         }
@@ -1358,7 +1384,7 @@ void instDecExec(unsigned int instWord, bool isCompressed)
 
     else if (opcode == 0x73)
     {
-        // 25.ecall
+        // 25.ECALL
         cout << "\tECALL\n";
         if (reg[17] == 1) // if a7==1 print a0 integer
         {
@@ -1369,18 +1395,9 @@ void instDecExec(unsigned int instWord, bool isCompressed)
             // if a7==4 print a0 string
             int i = 0;
 
-            // debugging: use this loop to show contents of the memory. In case of test case "t4", you cannot find "After concatenation: " in the memory.
-            // cout << "\n\n\n";
-            // for (int i = 0; i < (16 + 64) * 1024; i++)
-            // {
-            //     if (memory[i] != 0)
-            //         cout << "memory[" << i << "] = " << hex << (int)memory[i] << endl;
-            // }
-            // cout << "\n\n\n";
-
             while (memory[reg[10] + i] != 0)
             {
-                cout << static_cast<char>(memory[reg[10] + i]);
+                cout << (char)(memory[reg[10] + i]);
                 i++;
             }
             cout << endl;
@@ -1410,35 +1427,36 @@ void instDecExec(unsigned int instWord, bool isCompressed)
 
             if ((S_imm >> 11) == 1)
             {
-                S_imm = S_imm | 0b11111111111111111111000000000000;
+                S_imm |= 0b11111111111111111111100000000000;
             }
 
-            unsigned int temp3 = reg[rs1] + S_imm;
-            memory[temp3] = reg[rs2] & 0x000000FF;
+            memory[reg[rs1] + (int)S_imm] = (reg[rs2] & 0x000000FF);
 
             break;
         }
 
         case 0x1:
         {
-            // 27.sh
+            // 27.SH
             cout << "\tSH\t" << name[rs2] << ", " << (int)S_imm << "(" << name[rs1] << ")\n";
 
             if ((S_imm >> 11) == 1)
             {
-                S_imm = S_imm | 0b11111111111111111111000000000000;
+                S_imm |= 0b11111111111111111111100000000000;
             }
 
-            unsigned int temp3 = reg[rs1] + S_imm;
-            memory[temp3] = reg[rs2] & 0x000000FF;
-            memory[temp3 + 1] = (reg[rs2] >> 8) & 0x000000FF;
+            unsigned int temp = reg[rs1] + (int)S_imm;
+            unsigned int data = reg[rs2];
+
+            memory[temp] = (data & 0x000000FF);
+            memory[temp + 1] = ((data >> 8) & 0x000000FF); // debugging: review
 
             break;
         }
 
         case 0x2:
         {
-            // 28.sw
+            // 28.SW
             if (isCompressed == 0)
             {
 
@@ -1453,18 +1471,18 @@ void instDecExec(unsigned int instWord, bool isCompressed)
                     cout << "\tC.SWSP\t" << name[rs2] << ", " << dec << (int)S_imm << "\n";
                 }
             }
-            unsigned int data = reg[rs2];
             if ((S_imm >> 11) == 1)
             {
-                S_imm = S_imm | 0b11111111111111111111000000000000;
+                S_imm |= 0b11111111111111111111100000000000;
             }
 
-            signed int base_address = int(reg[rs1]) + int(S_imm);
+            unsigned int temp = reg[rs1] + int(S_imm);
+            unsigned int data = reg[rs2];
 
-            memory[base_address] = reg[rs2] & 0xFF;
-            memory[base_address + 1] = (data >> 8) & 0xFF;
-            memory[base_address + 2] = (data >> 16) & 0xFF;
-            memory[base_address + 3] = (data >> 24) & 0xFF;
+            memory[temp] = data & 0xFF;
+            memory[temp + 1] = (data >> 8) & 0xFF;
+            memory[temp + 2] = (data >> 16) & 0xFF;
+            memory[temp + 3] = (data >> 24) & 0xFF;
 
             break;
         }
@@ -1484,7 +1502,6 @@ void instDecExec(unsigned int instWord, bool isCompressed)
             // 29.BEQ
             if (isCompressed == 0)
             {
-
                 cout << "\tBEQ\t" << name[rs1] << ", " << name[rs2] << ", " << hex << "0x" << instPC + (int)B_imm << "\n";
             }
 
@@ -1497,11 +1514,11 @@ void instDecExec(unsigned int instWord, bool isCompressed)
                 }
             }
 
-            if ((int)reg[rs1] == (int)reg[rs2])
+            if (reg[rs1] == reg[rs2])
             {
 
                 pc = instPC + (int)B_imm;
-                pc = pc & 0x00001fff;
+                // pc = pc & 0x00001fff;  // debugging: review
             }
 
             break;
@@ -1527,7 +1544,7 @@ void instDecExec(unsigned int instWord, bool isCompressed)
             if (reg[rs1] != reg[rs2])
             {
                 pc = instPC + (int)B_imm;
-                pc = pc & 0x00001fff;
+                // pc = pc & 0x00001fff; // debugging: review
             }
 
             break;
@@ -1539,7 +1556,7 @@ void instDecExec(unsigned int instWord, bool isCompressed)
             if ((int)reg[rs1] < (int)reg[rs2])
             {
                 pc = instPC + (int)B_imm;
-                pc = pc & 0x00001fff;
+                // pc = pc & 0x00001fff; // debugging: review
             }
             break;
         }
@@ -1550,7 +1567,7 @@ void instDecExec(unsigned int instWord, bool isCompressed)
             if ((int)reg[rs1] >= (int)reg[rs2])
             {
                 pc = instPC + (int)B_imm;
-                pc = pc & 0x00001fff;
+                // pc = pc & 0x00001fff; // debugging: review
             }
             break;
         }
@@ -1561,7 +1578,7 @@ void instDecExec(unsigned int instWord, bool isCompressed)
             if (reg[rs1] < reg[rs2])
             {
                 pc = instPC + (int)B_imm;
-                pc = pc & 0x00001fff;
+                // pc = pc & 0x00001fff; // debugging: review
             }
             break;
         }
@@ -1572,7 +1589,7 @@ void instDecExec(unsigned int instWord, bool isCompressed)
             if (reg[rs1] >= reg[rs2])
             {
                 pc = instPC + (int)B_imm;
-                pc = pc & 0x00001fff;
+                // pc = pc & 0x00001fff; // debugging: review
             }
             break;
         }
@@ -1584,21 +1601,21 @@ void instDecExec(unsigned int instWord, bool isCompressed)
     else if (opcode == 0x37)
     {
         // 35.LUI
-        cout << "\tLUI\t" << name[rd] << ", " << hex << "0x" << (int)U_imm << "\n";
-        reg[rd] = (int)U_imm;
+        cout << "\tLUI\t" << name[rd] << ", " << hex << "0x" << ((int)U_imm >> 12) << "\n";
+        reg[rd] = (int)U_imm; // debugging: review
     }
 
     else if (opcode == 0x17)
     {
         // 26.AUIPC
-        cout << "\tAUIPC\t" << name[rd] << ", 0x" << hex << (int)U_imm << "\n";
+        cout << "\tAUIPC\t" << name[rd] << ", 0x" << hex << ((int)U_imm >> 12) << "\n";
 
         // debugging: In case of uncompressed test case "t4", use this if block to change "sp" to a lower value to be further than the data section,
         // becuase t4.bin's stack pointer overwrites the data section
         // if (instCount == 0 && ((filename == "t4.bin")))
         //     reg[rd] = 0x1000;
         // else
-        reg[rd] = (int)instPC + (int)U_imm;
+        reg[rd] = instPC + (int)U_imm;
     }
 
     else if (opcode == 0x6F)
@@ -1637,8 +1654,8 @@ void instDecExec(unsigned int instWord, bool isCompressed)
             reg[rd] = instPC + 2;
         }
 
-        pc = instPC + J_imm;
-        pc = pc & 0b00000000000111111111111111111111;
+        pc = instPC + (int)J_imm;
+        // pc = pc & 0b00000000000111111111111111111111; // debugging: review
     }
     else if (opcode == 0x67)
     {
@@ -1673,8 +1690,8 @@ void instDecExec(unsigned int instWord, bool isCompressed)
                 reg[rd] = instPC + 2;
             }
 
-            pc = reg[rs1] + I_imm;
-            pc = pc & 0b00000000000000000000111111111111;
+            pc = reg[rs1] + (int)I_imm;
+            // pc = pc & 0b00000000000000000000111111111111; // debugging: review
 
             break;
 
@@ -1698,8 +1715,10 @@ int main(int argc, char *argv[])
     // debugging: use the lines below to hardcode which files to open
     // argc = 3;
     // argv[0] = "rvsim.exe";
-    // argv[1] = "t0.bin";
-    // argv[2] = "t0-d.bin";
+    // argv[1] = "t4new.bin";
+    // argv[2] = "t4-dnew.bin";
+    // argv[1] = "t3.bin";
+    // argv[2] = "t3-d.bin";
 
     if (argc < 1)
         emitError("use: rvcdiss <machine_code_file_name>\n");
@@ -1741,7 +1760,9 @@ int main(int argc, char *argv[])
             {
                 pc -= 4;
 
-                instWord = (unsigned char)memory[pc] | (((unsigned char)memory[pc + 1]) << 8);
+                instWord = (unsigned char)memory[pc];
+                instWord |= (((unsigned char)memory[pc + 1]) << 8);
+
                 if (instWord == 0) // safety to prevent infinite loops
                     break;
 
@@ -1761,11 +1782,11 @@ int main(int argc, char *argv[])
                 break;
             }
 
-            if (pc > 65536)
-            { // safety to prevent infinite loops
-                cout << "\nEnd of text file\npc > 65536\n";
-                break;
-            }
+            // if (pc > 65536)
+            // { // safety to prevent infinite loops
+            //     cout << "\nEnd of text file\npc > 65536\n";
+            //     break;
+            // }
         }
     }
 }
